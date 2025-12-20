@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
+import { adminOnly, allRoles, checkOwnership } from "../_shared/middleware/authorize.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { validateUUID, validateRequestBody } from "../_shared/utils/validation.ts";
 import { RESOURCES } from "../_shared/constants/resources.ts";
@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
-        adminOnly(auth);
+        allRoles(auth);
 
         if (expenseId && action === "installments") {
           validateUUID(expenseId, "Expense ID");
