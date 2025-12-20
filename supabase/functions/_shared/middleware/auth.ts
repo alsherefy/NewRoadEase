@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { JWTPayload, UnauthorizedError } from "../types.ts";
+import { Role, ALL_ROLES } from "../constants/roles.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -39,9 +40,14 @@ export async function authenticateRequest(req: Request): Promise<JWTPayload> {
     throw new UnauthorizedError("User is not assigned to an organization");
   }
 
+  const userRole = profile.role as Role;
+  if (!ALL_ROLES.includes(userRole)) {
+    throw new UnauthorizedError(`Invalid user role: ${profile.role}`);
+  }
+
   return {
     userId: user.id,
-    role: profile.role as 'admin' | 'staff' | 'user',
+    role: userRole,
     organizationId: profile.organization_id,
     email: user.email || '',
     fullName: profile.full_name,

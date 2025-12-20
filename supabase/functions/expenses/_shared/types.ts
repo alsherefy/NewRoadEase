@@ -1,6 +1,8 @@
+import { Role } from "../../_shared/constants/roles.ts";
+
 export interface JWTPayload {
   userId: string;
-  role: 'admin' | 'staff' | 'user';
+  role: Role;
   organizationId: string;
   email: string;
   fullName: string;
