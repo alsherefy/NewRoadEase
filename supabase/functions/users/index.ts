@@ -80,6 +80,16 @@ Deno.serve(async (req: Request) => {
             auth: { autoRefreshToken: false, persistSession: false },
           });
 
+          const { data: currentUser, error: currentUserError } = await supabase
+            .from("users")
+            .select("organization_id")
+            .eq("id", (await supabase.auth.getUser()).data.user?.id)
+            .maybeSingle();
+
+          if (currentUserError || !currentUser?.organization_id) {
+            throw new ApiError("Unable to determine organization", "ORG_ERROR", 500);
+          }
+
           const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
             email,
             password,
@@ -95,6 +105,7 @@ Deno.serve(async (req: Request) => {
               email,
               full_name: name,
               role: role || "receptionist",
+              organization_id: currentUser.organization_id,
             })
             .select()
             .single();
