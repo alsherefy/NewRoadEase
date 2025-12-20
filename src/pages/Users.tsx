@@ -46,14 +46,14 @@ export function Users() {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [roleFormData, setRoleFormData] = useState({
     user_id: '',
-    role: 'staff' as 'admin' | 'staff' | 'user',
+    role: 'receptionist' as 'admin' | 'customer_service' | 'receptionist',
   });
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     full_name: '',
-    role: 'staff' as 'admin' | 'staff' | 'user',
+    role: 'receptionist' as 'admin' | 'customer_service' | 'receptionist',
   });
 
   const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -105,7 +105,7 @@ export function Users() {
       email: '',
       password: '',
       full_name: '',
-      role: 'staff',
+      role: 'receptionist',
     });
     setShowModal(true);
   }
@@ -115,40 +115,21 @@ export function Users() {
     setLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error(t('users.error_unauthorized'));
-      }
-
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`;
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          full_name: formData.full_name,
-          role: formData.role,
-        }),
+      await usersService.createUser({
+        email: formData.email,
+        password: formData.password,
+        name: formData.full_name,
+        role: formData.role,
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || t('users.error_create'));
-      }
-
+      toast.success(t('users.success_created'));
       await loadUsers();
       setShowModal(false);
       setFormData({
         email: '',
         password: '',
         full_name: '',
-        role: 'staff',
+        role: 'receptionist',
       });
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -321,7 +302,7 @@ export function Users() {
       setShowRoleModal(false);
       setRoleFormData({
         user_id: '',
-        role: 'staff',
+        role: 'receptionist',
       });
     } catch (error: any) {
       console.error('Error updating role:', error);
@@ -417,16 +398,16 @@ export function Users() {
                   className={`text-sm font-bold ${
                     user.role === 'admin'
                       ? 'text-orange-600'
-                      : user.role === 'user'
+                      : user.role === 'customer_service'
                       ? 'text-green-600'
                       : 'text-blue-600'
                   }`}
                 >
                   {user.role === 'admin'
                     ? t('roles.admin')
-                    : user.role === 'user'
-                    ? t('roles.user')
-                    : t('roles.staff')}
+                    : user.role === 'customer_service'
+                    ? t('roles.customer_service')
+                    : t('roles.receptionist')}
                 </span>
               </div>
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -441,7 +422,7 @@ export function Users() {
               </div>
             </div>
 
-            {(user.role === 'staff' || user.role === 'user') && (
+            {(user.role === 'customer_service' || user.role === 'receptionist') && (
               <button
                 onClick={() => openPermissionsModal(user)}
                 className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
@@ -548,14 +529,14 @@ export function Users() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      role: e.target.value as 'admin' | 'staff' | 'user',
+                      role: e.target.value as 'admin' | 'customer_service' | 'receptionist',
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="staff">{t('roles.staff')}</option>
-                  <option value="user">{t('roles.user')}</option>
                   <option value="admin">{t('roles.admin')}</option>
+                  <option value="customer_service">{t('roles.customer_service')}</option>
+                  <option value="receptionist">{t('roles.receptionist')}</option>
                 </select>
               </div>
 
@@ -766,14 +747,14 @@ export function Users() {
                   onChange={(e) =>
                     setRoleFormData({
                       ...roleFormData,
-                      role: e.target.value as 'admin' | 'staff' | 'user',
+                      role: e.target.value as 'admin' | 'customer_service' | 'receptionist',
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
-                  <option value="staff">{t('roles.staff')}</option>
-                  <option value="user">{t('roles.user')}</option>
                   <option value="admin">{t('roles.admin')}</option>
+                  <option value="customer_service">{t('roles.customer_service')}</option>
+                  <option value="receptionist">{t('roles.receptionist')}</option>
                 </select>
               </div>
 

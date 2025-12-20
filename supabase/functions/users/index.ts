@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
               id: authData.user.id,
               email,
               full_name: name,
-              role: role || "user",
+              role: role || "receptionist",
             })
             .select()
             .single();
