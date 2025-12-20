@@ -1,4 +1,4 @@
-import { Role } from "./constants/roles.ts";
+import { Role, Permission } from "./constants/roles.ts";
 
 export interface JWTPayload {
   userId: string;
@@ -6,6 +6,7 @@ export interface JWTPayload {
   organizationId: string;
   email: string;
   fullName: string;
+  permissions?: Permission[];
 }
 
 export interface ApiResponse<T = any> {

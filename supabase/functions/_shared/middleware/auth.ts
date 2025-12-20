@@ -45,11 +45,26 @@ export async function authenticateRequest(req: Request): Promise<JWTPayload> {
     throw new UnauthorizedError(`Invalid user role: ${profile.role}`);
   }
 
+  let permissions;
+  if (userRole !== 'admin') {
+    const { data: userPermissions } = await supabase
+      .from("user_permissions")
+      .select("permission_key, can_view, can_edit")
+      .eq("user_id", user.id);
+
+    permissions = userPermissions?.map(p => ({
+      resource: p.permission_key,
+      can_view: p.can_view,
+      can_edit: p.can_edit
+    })) || [];
+  }
+
   return {
     userId: user.id,
     role: userRole,
     organizationId: profile.organization_id,
     email: user.email || '',
     fullName: profile.full_name,
+    permissions,
   };
 }

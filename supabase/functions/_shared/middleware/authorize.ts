@@ -19,37 +19,30 @@ export const adminOnly = authorize([ROLES.ADMIN]);
 export const adminAndCustomerService = authorize([ROLES.ADMIN, ROLES.CUSTOMER_SERVICE]);
 export const allRoles = authorize([ROLES.ADMIN, ROLES.CUSTOMER_SERVICE, ROLES.RECEPTIONIST]);
 
-export async function authorizePermission(
+export function authorizePermission(
   user: JWTPayload,
   resource: PermissionKey,
   action: PermissionAction
-): Promise<void> {
+): void {
   if (user.role === ROLES.ADMIN) {
     return;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const { data: permissions, error } = await supabase
-    .from("user_permissions")
-    .select("*")
-    .eq("user_id", user.userId)
-    .eq("resource", resource)
-    .maybeSingle();
-
-  if (error) {
-    throw new ForbiddenError(`Error checking permissions: ${error.message}`);
-  }
-
-  if (!permissions) {
+  if (!user.permissions || user.permissions.length === 0) {
     throw new ForbiddenError(`Access denied. No permissions found for resource: ${resource}`);
   }
 
-  if (action === 'view' && !permissions.can_view) {
+  const permission = user.permissions.find(p => p.resource === resource);
+
+  if (!permission) {
+    throw new ForbiddenError(`Access denied. No permissions found for resource: ${resource}`);
+  }
+
+  if (action === 'view' && !permission.can_view) {
     throw new ForbiddenError(`Access denied. View permission required for resource: ${resource}`);
   }
 
-  if (action === 'edit' && !permissions.can_edit) {
+  if (action === 'edit' && !permission.can_edit) {
     throw new ForbiddenError(`Access denied. Edit permission required for resource: ${resource}`);
   }
 }
