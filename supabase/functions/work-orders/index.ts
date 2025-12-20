@@ -52,9 +52,18 @@ Deno.serve(async (req: Request) => {
         let query = supabase
           .from("work_orders")
           .select(`
-            *,
-            customer:customers(id, name, phone),
-            vehicle:vehicles(id, car_make, car_model, plate_number)
+            id,
+            order_number,
+            customer_id,
+            vehicle_id,
+            status,
+            priority,
+            total_labor_cost,
+            created_at,
+            updated_at,
+            estimated_completion_date,
+            customer:customers!inner(id, name, phone),
+            vehicle:vehicles!inner(id, car_make, car_model, plate_number)
           `, { count: "exact" });
 
         if (status) {

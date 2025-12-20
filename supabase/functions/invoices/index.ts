@@ -53,10 +53,24 @@ Deno.serve(async (req: Request) => {
         let query = supabase
           .from("invoices")
           .select(`
-            *,
-            work_order:work_orders(
+            id,
+            invoice_number,
+            work_order_id,
+            subtotal,
+            discount_percentage,
+            discount_amount,
+            tax_rate,
+            tax_amount,
+            total,
+            paid_amount,
+            payment_status,
+            payment_method,
+            card_type,
+            created_at,
+            work_order:work_orders!inner(
               id,
-              customer:customers(id, name, phone)
+              order_number,
+              customer:customers!inner(id, name, phone)
             )
           `, { count: "exact" });
 
