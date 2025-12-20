@@ -1,43 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function getSupabaseClient(authHeader: string | null) {
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
-}
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabase = getSupabaseClient(req.headers.get("Authorization"));
+    const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const invoiceId = pathParts[2];
@@ -49,15 +21,24 @@ Deno.serve(async (req: Request) => {
             .from("invoices")
             .select(`
               *,
-              customer:customers(id, name, phone, email, address),
-              items:invoice_items(*)
+              customers!invoices_customer_id_fkey(id, name, phone, email, address),
+              invoice_items(*)
             `)
             .eq("id", invoiceId)
             .maybeSingle();
 
-          if (error) return errorResponse(error.message, 500);
-          if (!data) return errorResponse("Invoice not found", 404);
-          return jsonResponse(data);
+          if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+          if (!data) throw new ApiError("Invoice not found", "NOT_FOUND", 404);
+
+          const result = {
+            ...data,
+            customer: data.customers,
+            items: data.invoice_items
+          };
+          delete result.customers;
+          delete result.invoice_items;
+
+          return successResponse(result);
         }
 
         const limit = parseInt(url.searchParams.get("limit") || "50");
@@ -70,7 +51,7 @@ Deno.serve(async (req: Request) => {
           .from("invoices")
           .select(`
             *,
-            customer:customers(id, name, phone)
+            customers!invoices_customer_id_fkey(id, name, phone)
           `, { count: "exact" });
 
         if (paymentStatus) {
@@ -81,10 +62,17 @@ Deno.serve(async (req: Request) => {
           .order(orderBy, { ascending: orderDir === "asc" })
           .range(offset, offset + limit - 1);
 
-        if (error) return errorResponse(error.message, 500);
+        if (error) throw new ApiError(error.message, "DB_ERROR", 500);
 
-        return jsonResponse({
-          data: data || [],
+        const results = (data || []).map(item => ({
+          ...item,
+          customer: item.customers
+        }));
+
+        results.forEach(item => delete item.customers);
+
+        return successResponse({
+          data: results,
           count: count || 0,
           hasMore: offset + limit < (count || 0),
         });
@@ -95,14 +83,14 @@ Deno.serve(async (req: Request) => {
         const { items, ...invoiceData } = body;
 
         const { data: invoiceNumber } = await supabase.rpc("generate_invoice_number");
-        
+
         const { data: invoice, error: invoiceError } = await supabase
           .from("invoices")
           .insert({ ...invoiceData, invoice_number: invoiceNumber })
           .select()
           .single();
 
-        if (invoiceError) return errorResponse(invoiceError.message, 500);
+        if (invoiceError) throw new ApiError(invoiceError.message, "DB_ERROR", 500);
 
         if (items && items.length > 0) {
           const itemsToInsert = items.map((item: any) => ({
@@ -114,14 +102,14 @@ Deno.serve(async (req: Request) => {
             .from("invoice_items")
             .insert(itemsToInsert);
 
-          if (itemsError) return errorResponse(itemsError.message, 500);
+          if (itemsError) throw new ApiError(itemsError.message, "DB_ERROR", 500);
         }
 
-        return jsonResponse(invoice, 201);
+        return successResponse(invoice, 201);
       }
 
       case "PUT": {
-        if (!invoiceId) return errorResponse("Invoice ID required", 400);
+        if (!invoiceId) throw new ApiError("Invoice ID required", "INVALID_REQUEST", 400);
 
         const body = await req.json();
         const { items, ...invoiceData } = body;
@@ -133,11 +121,11 @@ Deno.serve(async (req: Request) => {
           .select()
           .single();
 
-        if (error) return errorResponse(error.message, 500);
+        if (error) throw new ApiError(error.message, "DB_ERROR", 500);
 
         if (items) {
           await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
-          
+
           if (items.length > 0) {
             const itemsToInsert = items.map((item: any) => ({
               ...item,
@@ -148,31 +136,31 @@ Deno.serve(async (req: Request) => {
               .from("invoice_items")
               .insert(itemsToInsert);
 
-            if (itemsError) return errorResponse(itemsError.message, 500);
+            if (itemsError) throw new ApiError(itemsError.message, "DB_ERROR", 500);
           }
         }
 
-        return jsonResponse(data);
+        return successResponse(data);
       }
 
       case "DELETE": {
-        if (!invoiceId) return errorResponse("Invoice ID required", 400);
+        if (!invoiceId) throw new ApiError("Invoice ID required", "INVALID_REQUEST", 400);
 
         await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
-        
+
         const { error } = await supabase
           .from("invoices")
           .delete()
           .eq("id", invoiceId);
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse({ success: true });
+        if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+        return successResponse({ success: true });
       }
 
       default:
-        return errorResponse("Method not allowed", 405);
+        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
+    return errorResponse(err);
   }
 });

@@ -1,43 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { ApiError } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-function getSupabaseClient(authHeader: string | null) {
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabase = getSupabaseClient(req.headers.get("Authorization"));
+    const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const userId = pathParts[2];
@@ -51,8 +27,8 @@ Deno.serve(async (req: Request) => {
             .select("*")
             .eq("user_id", userId);
 
-          if (error) return errorResponse(error.message, 500);
-          return jsonResponse(data || []);
+          if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+          return successResponse(data || []);
         }
 
         if (userId && action === "profile") {
@@ -62,8 +38,8 @@ Deno.serve(async (req: Request) => {
             .eq("id", userId)
             .maybeSingle();
 
-          if (error) return errorResponse(error.message, 500);
-          return jsonResponse(data);
+          if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+          return successResponse(data);
         }
 
         if (userId) {
@@ -73,9 +49,9 @@ Deno.serve(async (req: Request) => {
             .eq("id", userId)
             .maybeSingle();
 
-          if (error) return errorResponse(error.message, 500);
-          if (!data) return errorResponse("User not found", 404);
-          return jsonResponse(data);
+          if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+          if (!data) throw new ApiError("User not found", "NOT_FOUND", 404);
+          return successResponse(data);
         }
 
         const { data, error } = await supabase
@@ -83,8 +59,8 @@ Deno.serve(async (req: Request) => {
           .select(`*, permissions:user_permissions(*)`)
           .order("created_at", { ascending: false });
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data || []);
+        if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+        return successResponse(data || []);
       }
 
       case "POST": {
@@ -102,28 +78,28 @@ Deno.serve(async (req: Request) => {
             email_confirm: true,
           });
 
-          if (authError) return errorResponse(authError.message, 500);
+          if (authError) throw new ApiError(authError.message, "AUTH_ERROR", 500);
 
           const { data: userData, error: userError } = await supabase
             .from("users")
             .insert({
               id: authData.user.id,
               email,
-              name,
+              full_name: name,
               role: role || "user",
             })
             .select()
             .single();
 
-          if (userError) return errorResponse(userError.message, 500);
-          return jsonResponse(userData, 201);
+          if (userError) throw new ApiError(userError.message, "DB_ERROR", 500);
+          return successResponse(userData, 201);
         }
 
-        return errorResponse("Invalid action", 400);
+        throw new ApiError("Invalid action", "INVALID_ACTION", 400);
       }
 
       case "PUT": {
-        if (!userId) return errorResponse("User ID required", 400);
+        if (!userId) throw new ApiError("User ID required", "INVALID_REQUEST", 400);
 
         if (action === "permissions") {
           const body = await req.json();
@@ -137,10 +113,10 @@ Deno.serve(async (req: Request) => {
 
           if (permissionsToInsert.length > 0) {
             const { error } = await supabase.from("user_permissions").insert(permissionsToInsert);
-            if (error) return errorResponse(error.message, 500);
+            if (error) throw new ApiError(error.message, "DB_ERROR", 500);
           }
 
-          return jsonResponse({ success: true });
+          return successResponse({ success: true });
         }
 
         const body = await req.json();
@@ -151,23 +127,23 @@ Deno.serve(async (req: Request) => {
           .select()
           .single();
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data);
+        if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+        return successResponse(data);
       }
 
       case "DELETE": {
-        if (!userId) return errorResponse("User ID required", 400);
+        if (!userId) throw new ApiError("User ID required", "INVALID_REQUEST", 400);
 
         const { error } = await supabase.from("users").delete().eq("id", userId);
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse({ success: true });
+        if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+        return successResponse({ success: true });
       }
 
       default:
-        return errorResponse("Method not allowed", 405);
+        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
+    return errorResponse(err);
   }
 });

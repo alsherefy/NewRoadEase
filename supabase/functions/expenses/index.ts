@@ -1,43 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function getSupabaseClient(authHeader: string | null) {
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
-}
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabase = getSupabaseClient(req.headers.get("Authorization"));
+    const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const expenseId = pathParts[2];
@@ -52,8 +24,8 @@ Deno.serve(async (req: Request) => {
             .eq("expense_id", expenseId)
             .order("installment_number");
 
-          if (error) return errorResponse(error.message, 500);
-          return jsonResponse(data || []);
+          if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+          return successResponse(data || []);
         }
 
         if (expenseId) {
@@ -63,9 +35,9 @@ Deno.serve(async (req: Request) => {
             .eq("id", expenseId)
             .maybeSingle();
 
-          if (error) return errorResponse(error.message, 500);
-          if (!data) return errorResponse("Expense not found", 404);
-          return jsonResponse(data);
+          if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+          if (!data) throw new ApiError("Expense not found", "NOT_FOUND", 404);
+          return successResponse(data);
         }
 
         const orderBy = url.searchParams.get("orderBy") || "expense_date";
@@ -80,8 +52,8 @@ Deno.serve(async (req: Request) => {
 
         const { data, error } = await query.order(orderBy, { ascending: orderDir === "asc" });
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data || []);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        return successResponse(data || []);
       }
 
       case "POST": {
@@ -94,26 +66,26 @@ Deno.serve(async (req: Request) => {
           .select()
           .single();
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data, 201);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        return successResponse(data, 201);
       }
 
       case "PUT": {
-        if (!expenseId) return errorResponse("Expense ID required", 400);
+        if (!expenseId) throw new ApiError("Expense ID required", "VALIDATION_ERROR", 400);
 
         if (action === "installments") {
           const body = await req.json();
           const installmentId = pathParts[4];
-          
-          if (!installmentId) return errorResponse("Installment ID required", 400);
+
+          if (!installmentId) throw new ApiError("Installment ID required", "VALIDATION_ERROR", 400);
 
           const { error } = await supabase
             .from("expense_installments")
             .update(body)
             .eq("id", installmentId);
 
-          if (error) return errorResponse(error.message, 500);
-          return jsonResponse({ success: true });
+          if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+          return successResponse({ success: true });
         }
 
         const body = await req.json();
@@ -124,26 +96,27 @@ Deno.serve(async (req: Request) => {
           .select()
           .single();
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        return successResponse(data);
       }
 
       case "DELETE": {
-        if (!expenseId) return errorResponse("Expense ID required", 400);
+        if (!expenseId) throw new ApiError("Expense ID required", "VALIDATION_ERROR", 400);
 
         const { error } = await supabase
           .from("expenses")
           .delete()
           .eq("id", expenseId);
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse({ success: true });
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        return successResponse({ success: true });
       }
 
       default:
-        return errorResponse("Method not allowed", 405);
+        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
+    console.error("Error in expenses endpoint:", err);
+    return errorResponse(err as Error);
   }
 });

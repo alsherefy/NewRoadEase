@@ -1,43 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function getSupabaseClient(authHeader: string | null) {
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
-}
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabase = getSupabaseClient(req.headers.get("Authorization"));
+    const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const reportType = pathParts[2];
@@ -45,7 +17,7 @@ Deno.serve(async (req: Request) => {
     const endDate = url.searchParams.get("endDate");
 
     if (req.method !== "GET") {
-      return errorResponse("Method not allowed", 405);
+      throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
     switch (reportType) {
@@ -86,7 +58,7 @@ Deno.serve(async (req: Request) => {
         const totalSparePartsSold = sparePartsSold.reduce((sum: number, sp: any) => sum + sp.quantity, 0);
         const lowStockItems = allSpareParts.filter((sp: any) => sp.quantity <= sp.minimum_quantity).length;
 
-        return jsonResponse({
+        return successResponse({
           totalRevenue,
           totalWorkOrders: workOrders.length,
           completedOrders,
@@ -103,12 +75,12 @@ Deno.serve(async (req: Request) => {
 
       case "inventory": {
         const { data: spareParts, error } = await supabase.from("spare_parts").select("*");
-        if (error) return errorResponse(error.message, 500);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
         const totalValue = (spareParts || []).reduce((sum: number, sp: any) => sum + (sp.quantity * Number(sp.unit_price)), 0);
         const lowStockItems = (spareParts || []).filter((sp: any) => sp.quantity <= sp.minimum_quantity);
 
-        return jsonResponse({
+        return successResponse({
           totalItems: (spareParts || []).length,
           totalValue,
           lowStockItems: lowStockItems.map((item: any) => ({
@@ -125,7 +97,7 @@ Deno.serve(async (req: Request) => {
           .select("*")
           .eq("is_active", true);
 
-        if (techError) return errorResponse(techError.message, 500);
+        if (techError) throw new ApiError(techError.message, "DATABASE_ERROR", 500);
 
         const reports = [];
 
@@ -177,13 +149,14 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        return jsonResponse(reports.sort((a, b) => b.totalRevenue - a.totalRevenue));
+        return successResponse(reports.sort((a, b) => b.totalRevenue - a.totalRevenue));
       }
 
       default:
-        return errorResponse("Invalid report type. Use: overview, inventory, or technicians", 400);
+        throw new ApiError("Invalid report type. Use: overview, inventory, or technicians", "INVALID_REPORT_TYPE", 400);
     }
   } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
+    console.error("Error in reports endpoint:", err);
+    return errorResponse(err as Error);
   }
 });

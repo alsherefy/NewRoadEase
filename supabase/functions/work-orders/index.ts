@@ -1,43 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function getSupabaseClient(authHeader: string | null) {
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
-}
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabase = getSupabaseClient(req.headers.get("Authorization"));
+    const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const workOrderId = pathParts[2];
@@ -66,9 +38,9 @@ Deno.serve(async (req: Request) => {
             .eq("id", workOrderId)
             .maybeSingle();
 
-          if (error) return errorResponse(error.message, 500);
-          if (!data) return errorResponse("Work order not found", 404);
-          return jsonResponse(data);
+          if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+          if (!data) throw new ApiError("Work order not found", "NOT_FOUND", 404);
+          return successResponse(data);
         }
 
         const limit = parseInt(url.searchParams.get("limit") || "50");
@@ -93,9 +65,9 @@ Deno.serve(async (req: Request) => {
           .order(orderBy, { ascending: orderDir === "asc" })
           .range(offset, offset + limit - 1);
 
-        if (error) return errorResponse(error.message, 500);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
-        return jsonResponse({
+        return successResponse({
           data: data || [],
           count: count || 0,
           hasMore: offset + limit < (count || 0),
@@ -107,14 +79,14 @@ Deno.serve(async (req: Request) => {
         const { services, spare_parts, ...workOrderData } = body;
 
         const { data: orderNumber } = await supabase.rpc("generate_work_order_number");
-        
+
         const { data: workOrder, error: workOrderError } = await supabase
           .from("work_orders")
           .insert({ ...workOrderData, order_number: orderNumber })
           .select()
           .single();
 
-        if (workOrderError) return errorResponse(workOrderError.message, 500);
+        if (workOrderError) throw new ApiError(workOrderError.message, "DATABASE_ERROR", 500);
 
         if (services && services.length > 0) {
           for (const service of services) {
@@ -125,7 +97,7 @@ Deno.serve(async (req: Request) => {
               .select()
               .single();
 
-            if (serviceError) return errorResponse(serviceError.message, 500);
+            if (serviceError) throw new ApiError(serviceError.message, "DATABASE_ERROR", 500);
 
             if (technicians && technicians.length > 0) {
               const assignments = technicians.map((t: any) => ({
@@ -139,7 +111,7 @@ Deno.serve(async (req: Request) => {
                 .from("technician_assignments")
                 .insert(assignments);
 
-              if (assignError) return errorResponse(assignError.message, 500);
+              if (assignError) throw new ApiError(assignError.message, "DATABASE_ERROR", 500);
             }
           }
         }
@@ -156,7 +128,7 @@ Deno.serve(async (req: Request) => {
             .from("work_order_spare_parts")
             .insert(partsToInsert);
 
-          if (partsError) return errorResponse(partsError.message, 500);
+          if (partsError) throw new ApiError(partsError.message, "DATABASE_ERROR", 500);
 
           for (const sp of spare_parts) {
             await supabase.rpc("decrease_spare_part_quantity", {
@@ -166,11 +138,11 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        return jsonResponse(workOrder, 201);
+        return successResponse(workOrder, 201);
       }
 
       case "PUT": {
-        if (!workOrderId) return errorResponse("Work order ID required", 400);
+        if (!workOrderId) throw new ApiError("Work order ID required", "VALIDATION_ERROR", 400);
 
         const body = await req.json();
         const { data, error } = await supabase
@@ -180,12 +152,12 @@ Deno.serve(async (req: Request) => {
           .select()
           .single();
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        return successResponse(data);
       }
 
       case "DELETE": {
-        if (!workOrderId) return errorResponse("Work order ID required", 400);
+        if (!workOrderId) throw new ApiError("Work order ID required", "VALIDATION_ERROR", 400);
 
         await supabase.from("technician_assignments").delete().in(
           "service_id",
@@ -193,20 +165,21 @@ Deno.serve(async (req: Request) => {
         );
         await supabase.from("work_order_services").delete().eq("work_order_id", workOrderId);
         await supabase.from("work_order_spare_parts").delete().eq("work_order_id", workOrderId);
-        
+
         const { error } = await supabase
           .from("work_orders")
           .delete()
           .eq("id", workOrderId);
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse({ success: true });
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        return successResponse({ success: true });
       }
 
       default:
-        return errorResponse("Method not allowed", 405);
+        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
+    console.error("Error in work-orders endpoint:", err);
+    return errorResponse(err as Error);
   }
 });
