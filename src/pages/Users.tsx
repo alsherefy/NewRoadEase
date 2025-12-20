@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { UserPermissionsManager } from '../components/UserPermissionsManager';
 
 interface UserWithPerms extends User {
   permissions?: UserPermission[];
@@ -169,28 +170,16 @@ export function Users() {
 
   function openPermissionsModal(user: UserWithPerms) {
     setSelectedUser(user);
-
-    const perms: Record<PermissionKey, { can_view: boolean; can_edit: boolean }> = {
-      dashboard: { can_view: false, can_edit: false },
-      customers: { can_view: false, can_edit: false },
-      work_orders: { can_view: false, can_edit: false },
-      invoices: { can_view: false, can_edit: false },
-      inventory: { can_view: false, can_edit: false },
-      technicians: { can_view: false, can_edit: false },
-      reports: { can_view: false, can_edit: false },
-      settings: { can_view: false, can_edit: false },
-      users: { can_view: false, can_edit: false },
-    };
-
-    user.permissions?.forEach((p) => {
-      perms[p.permission_key] = {
-        can_view: p.can_view,
-        can_edit: p.can_edit,
-      };
-    });
-
-    setPermissionsData(perms);
     setShowPermissionsModal(true);
+  }
+
+  function closePermissionsModal() {
+    setShowPermissionsModal(false);
+    setSelectedUser(null);
+  }
+
+  async function handlePermissionsSaved() {
+    await loadUsers();
   }
 
   async function savePermissions() {
@@ -562,84 +551,11 @@ export function Users() {
       )}
 
       {showPermissionsModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 my-8">
-            <div className="flex items-center gap-3 mb-6">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800">
-                  {t('users.manage_permissions_for')} {selectedUser.full_name}
-                </h3>
-                <p className="text-sm text-gray-600">{selectedUser.email}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3 mb-6">
-              {Object.entries(PERMISSION_LABELS).map(([key, label]) => (
-                <div
-                  key={key}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-bold text-gray-800">{label}</span>
-                  </div>
-                  <div className="flex gap-6">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={permissionsData[key as PermissionKey].can_view}
-                        onChange={(e) =>
-                          setPermissionsData({
-                            ...permissionsData,
-                            [key]: {
-                              ...permissionsData[key as PermissionKey],
-                              can_view: e.target.checked,
-                            },
-                          })
-                        }
-                        className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">{t('permissions.view')}</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={permissionsData[key as PermissionKey].can_edit}
-                        onChange={(e) =>
-                          setPermissionsData({
-                            ...permissionsData,
-                            [key]: {
-                              ...permissionsData[key as PermissionKey],
-                              can_edit: e.target.checked,
-                            },
-                          })
-                        }
-                        className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
-                      />
-                      <span className="text-sm text-gray-700">{t('permissions.edit')}</span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowPermissionsModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={savePermissions}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? t('common.saving') : t('users.save_permissions')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <UserPermissionsManager
+          user={selectedUser}
+          onClose={closePermissionsModal}
+          onSave={handlePermissionsSaved}
+        />
       )}
 
       {showPasswordModal && selectedUser && (

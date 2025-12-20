@@ -62,16 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData);
 
-        if (userData.role === 'customer_service' || userData.role === 'receptionist') {
-          const { data: permsData } = await supabase
-            .from('user_permissions')
-            .select('*')
-            .eq('user_id', userId);
+        const { data: permsData } = await supabase
+          .from('user_permissions')
+          .select('*')
+          .eq('user_id', userId);
 
-          setPermissions(permsData || []);
-        } else {
-          setPermissions([]);
-        }
+        setPermissions(permsData || []);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -110,6 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
     if (user.role === 'admin') return true;
 
+    const customPermission = permissions.find(p => p.permission_key === key);
+    if (customPermission) {
+      if (requireEdit) {
+        return customPermission.can_view && customPermission.can_edit;
+      }
+      return customPermission.can_view;
+    }
+
     if (user.role === 'customer_service') {
       const allowedPermissions: PermissionKey[] = ['customers', 'work_orders', 'invoices', 'inventory', 'dashboard'];
       if (allowedPermissions.includes(key)) {
@@ -127,14 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return viewPermissions.includes(key);
     }
 
-    const permission = permissions.find(p => p.permission_key === key);
-    if (!permission) return false;
-
-    if (requireEdit) {
-      return permission.can_view && permission.can_edit;
-    }
-
-    return permission.can_view;
+    return false;
   }
 
   function isAdmin(): boolean {

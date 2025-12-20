@@ -657,7 +657,16 @@
     "users": "Users",
     "salaries": "Salaries",
     "view": "View",
-    "edit": "Edit"
+    "edit": "Edit",
+    "manage_permissions": "Manage Permissions",
+    "can_view": "Can View",
+    "can_edit": "Can Edit",
+    "permission": "Permission",
+    "role_info": "User Role",
+    "custom_override_info": "Custom permissions will override default role permissions",
+    "error_loading": "Error loading permissions",
+    "error_saving": "Error saving permissions",
+    "success_saved": "Permissions saved successfully"
   },
   "common": {
     "loading": "Loading...",
