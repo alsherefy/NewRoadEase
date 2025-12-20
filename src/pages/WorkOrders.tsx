@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { WorkOrder } from '../types';
-import { Plus, Eye, Calendar, Car, User, DollarSign, Edit, Trash2 } from 'lucide-react';
+import { Plus, Eye, Calendar, Car, User, DollarSign, Edit, Trash2, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -16,7 +16,7 @@ interface WorkOrdersProps {
 
 export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersProps) {
   const { t } = useTranslation();
-  const { isCustomerServiceOrAdmin } = useAuth();
+  const { hasPermission, isAdmin } = useAuth();
   const toast = useToast();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,21 +111,41 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
     );
   };
 
+  if (!isAdmin() && !hasPermission('work_orders')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <ShieldAlert className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            {t('work_orders.unauthorized')}
+          </h2>
+          <p className="text-gray-600">
+            {t('work_orders.unauthorized_message')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="text-center py-8">{t('common.loading')}</div>;
   }
+
+  const canEdit = isAdmin() || hasPermission('work_orders', true);
 
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{t('work_orders.title')}</h2>
-        <button
-          onClick={onNewOrder}
-          className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-600 text-white px-4 py-3 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium min-h-[44px]"
-        >
-          <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-          <span>{t('work_orders.new_order')}</span>
-        </button>
+        {canEdit && (
+          <button
+            onClick={onNewOrder}
+            className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-600 text-white px-4 py-3 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium min-h-[44px]"
+          >
+            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span>{t('work_orders.new_order')}</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg sm:rounded-xl shadow-md p-3">

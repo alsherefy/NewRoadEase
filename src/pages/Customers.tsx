@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Customer, Vehicle } from '../types';
-import { Plus, Edit2, Trash2, Phone, Mail, Car, User, X, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Phone, Mail, Car, User, X, Search, ShieldAlert } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useTranslation } from 'react-i18next';
 import { normalizeNumberInput } from '../utils/numberUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 interface VehicleFormData {
   car_make: string;
@@ -17,6 +18,7 @@ interface VehicleFormData {
 
 export function Customers() {
   const { t } = useTranslation();
+  const { hasPermission, isAdmin } = useAuth();
   const toast = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -325,21 +327,41 @@ export function Customers() {
     return matchesName || matchesPhone || matchesPlateNumber;
   });
 
+  if (!isAdmin() && !hasPermission('customers')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <ShieldAlert className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            {t('customers.unauthorized')}
+          </h2>
+          <p className="text-gray-600">
+            {t('customers.unauthorized_message')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="text-center py-8">{t('common.loading')}</div>;
   }
+
+  const canEdit = isAdmin() || hasPermission('customers', true);
 
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{t('customers.title')}</h2>
-        <button
-          onClick={() => setShowCustomerForm(true)}
-          className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-600 text-white px-4 py-3 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm font-medium min-h-[44px]"
-        >
-          <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-          <span>{t('customers.add_customer')}</span>
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowCustomerForm(true)}
+            className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-600 text-white px-4 py-3 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm font-medium min-h-[44px]"
+          >
+            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span>{t('customers.add_customer')}</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">

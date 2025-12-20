@@ -95,7 +95,9 @@
     "vehicle_error_create": "An error occurred while adding the vehicle",
     "vehicle_error_update": "An error occurred while updating the vehicle",
     "vehicle_error_delete": "An error occurred while deleting the vehicle",
-    "fill_required_fields": "Please fill all required fields for the vehicle"
+    "fill_required_fields": "Please fill all required fields for the vehicle",
+    "unauthorized": "Access Denied",
+    "unauthorized_message": "You do not have permission to access this page"
   },
   "vehicles": {
     "title": "Vehicles",
@@ -171,7 +173,9 @@
     "auto_invoice_for": "Auto-generate invoice for",
     "invoice_created": "Invoice created successfully",
     "invoice_create_error": "Error creating invoice",
-    "workshop_name": "Workshop Name"
+    "workshop_name": "Workshop Name",
+    "unauthorized": "Access Denied",
+    "unauthorized_message": "You do not have permission to access this page"
   },
   "services": {
     "mechanics": "Mechanics",

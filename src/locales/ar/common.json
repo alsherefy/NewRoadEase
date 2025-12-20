@@ -95,7 +95,9 @@
     "vehicle_error_create": "حدث خطأ أثناء إضافة السيارة",
     "vehicle_error_update": "حدث خطأ أثناء تحديث السيارة",
     "vehicle_error_delete": "حدث خطأ أثناء حذف السيارة",
-    "fill_required_fields": "يرجى ملء جميع الحقول المطلوبة للسيارة"
+    "fill_required_fields": "يرجى ملء جميع الحقول المطلوبة للسيارة",
+    "unauthorized": "الوصول مرفوض",
+    "unauthorized_message": "ليس لديك صلاحية للوصول إلى هذه الصفحة"
   },
   "vehicles": {
     "title": "المركبات",
@@ -171,7 +173,9 @@
     "auto_invoice_for": "إنشاء فاتورة تلقائياً لـ",
     "invoice_created": "تم إنشاء الفاتورة بنجاح",
     "invoice_create_error": "خطأ في إنشاء الفاتورة",
-    "workshop_name": "اسم الورشة"
+    "workshop_name": "اسم الورشة",
+    "unauthorized": "الوصول مرفوض",
+    "unauthorized_message": "ليس لديك صلاحية للوصول إلى هذه الصفحة"
   },
   "services": {
     "mechanics": "ميكانيكا",
