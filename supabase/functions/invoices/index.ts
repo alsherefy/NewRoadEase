@@ -21,7 +21,10 @@ Deno.serve(async (req: Request) => {
             .from("invoices")
             .select(`
               *,
-              customers!invoices_customer_id_fkey(id, name, phone, email, address),
+              work_order:work_orders(
+                id,
+                customer:customers(id, name, phone, email, address)
+              ),
               invoice_items(*)
             `)
             .eq("id", invoiceId)
@@ -32,10 +35,10 @@ Deno.serve(async (req: Request) => {
 
           const result = {
             ...data,
-            customer: data.customers,
+            customer: data.work_order?.customer || null,
             items: data.invoice_items
           };
-          delete result.customers;
+          delete result.work_order;
           delete result.invoice_items;
 
           return successResponse(result);
@@ -51,7 +54,10 @@ Deno.serve(async (req: Request) => {
           .from("invoices")
           .select(`
             *,
-            customers!invoices_customer_id_fkey(id, name, phone)
+            work_order:work_orders(
+              id,
+              customer:customers(id, name, phone)
+            )
           `, { count: "exact" });
 
         if (paymentStatus) {
@@ -66,10 +72,10 @@ Deno.serve(async (req: Request) => {
 
         const results = (data || []).map(item => ({
           ...item,
-          customer: item.customers
+          customer: item.work_order?.customer || null
         }));
 
-        results.forEach(item => delete item.customers);
+        results.forEach(item => delete item.work_order);
 
         return successResponse({
           data: results,
