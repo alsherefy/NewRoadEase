@@ -18,12 +18,12 @@ Deno.serve(async (req: Request) => {
     const pathParts = url.pathname.split("/").filter(Boolean);
 
     const lastPart = pathParts[pathParts.length - 1];
-    const action = lastPart === 'permissions' ? 'permissions' : undefined;
+    const action = lastPart === 'permissions' ? 'permissions' : lastPart === 'create' ? 'create' : undefined;
 
     let userId: string | undefined;
     if (action === 'permissions') {
       userId = pathParts[pathParts.length - 2];
-    } else if (lastPart !== 'users') {
+    } else if (lastPart !== 'users' && action !== 'create') {
       userId = lastPart;
     }
 
