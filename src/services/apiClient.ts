@@ -2,11 +2,22 @@ import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
+interface ApiResponse<T = any> {
+  success: boolean;
+  data: T | null;
+  error: {
+    code: string;
+    message: string;
+    details?: any;
+  } | null;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public code?: string
+    public code?: string,
+    public details?: any
   ) {
     super(message);
     this.name = 'ApiError';
@@ -29,15 +40,25 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+  const json: ApiResponse<T> = await response.json().catch(() => ({
+    success: false,
+    data: null,
+    error: {
+      code: 'PARSE_ERROR',
+      message: 'Failed to parse response',
+    }
+  }));
+
+  if (!json.success || json.error) {
     throw new ApiError(
-      errorData.error || `HTTP error ${response.status}`,
+      json.error?.message || `HTTP error ${response.status}`,
       response.status,
-      errorData.code
+      json.error?.code,
+      json.error?.details
     );
   }
-  return response.json();
+
+  return json.data as T;
 }
 
 export const apiClient = {

@@ -1,124 +1,85 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function getSupabaseClient(authHeader: string | null) {
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
-}
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { authorize, allRoles, adminAndStaff, adminOnly } from "../_shared/middleware/authorize.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateCustomer, validateId, validatePagination } from "../_shared/utils/validation.ts";
+import { CustomersService } from "./services/customers.service.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabase = getSupabaseClient(req.headers.get("Authorization"));
+    const user = await authenticateRequest(req);
+
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const customerId = pathParts[2];
 
+    const customersService = new CustomersService(user);
+
     switch (req.method) {
       case "GET": {
-        if (customerId) {
-          const { data, error } = await supabase
-            .from("customers")
-            .select("*")
-            .eq("id", customerId)
-            .maybeSingle();
+        allRoles(user);
 
-          if (error) return errorResponse(error.message, 500);
-          if (!data) return errorResponse("Customer not found", 404);
-          return jsonResponse(data);
+        if (customerId) {
+          validateId(customerId, "Customer");
+          const customer = await customersService.getById(customerId);
+          return successResponse(customer);
         }
 
-        const limit = parseInt(url.searchParams.get("limit") || "50");
-        const offset = parseInt(url.searchParams.get("offset") || "0");
-        const orderBy = url.searchParams.get("orderBy") || "created_at";
-        const orderDir = url.searchParams.get("orderDir") || "desc";
-
-        const { data, error, count } = await supabase
-          .from("customers")
-          .select("*", { count: "exact" })
-          .order(orderBy, { ascending: orderDir === "asc" })
-          .range(offset, offset + limit - 1);
-
-        if (error) return errorResponse(error.message, 500);
-
-        return jsonResponse({
-          data: data || [],
-          count: count || 0,
-          hasMore: offset + limit < (count || 0),
+        const pagination = validatePagination({
+          limit: url.searchParams.get("limit"),
+          offset: url.searchParams.get("offset"),
         });
+
+        const params = {
+          ...pagination,
+          orderBy: url.searchParams.get("orderBy") || undefined,
+          orderDir: url.searchParams.get("orderDir") || undefined,
+        };
+
+        const result = await customersService.getAll(params);
+        return successResponse(result);
       }
 
       case "POST": {
-        const body = await req.json();
-        const { data, error } = await supabase
-          .from("customers")
-          .insert(body)
-          .select()
-          .single();
+        adminAndStaff(user);
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data, 201);
+        const createData = await req.json();
+        validateCustomer(createData);
+
+        const newCustomer = await customersService.create(createData);
+        return successResponse(newCustomer, 201);
       }
 
       case "PUT": {
-        if (!customerId) return errorResponse("Customer ID required", 400);
+        adminAndStaff(user);
 
-        const body = await req.json();
-        const { data, error } = await supabase
-          .from("customers")
-          .update(body)
-          .eq("id", customerId)
-          .select()
-          .single();
+        validateId(customerId, "Customer");
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse(data);
+        const updateData = await req.json();
+        validateCustomer(updateData);
+
+        const updatedCustomer = await customersService.update(customerId!, updateData);
+        return successResponse(updatedCustomer);
       }
 
       case "DELETE": {
-        if (!customerId) return errorResponse("Customer ID required", 400);
+        adminOnly(user);
 
-        const { error } = await supabase
-          .from("customers")
-          .delete()
-          .eq("id", customerId);
+        validateId(customerId, "Customer");
 
-        if (error) return errorResponse(error.message, 500);
-        return jsonResponse({ success: true });
+        await customersService.delete(customerId!);
+        return successResponse({ deleted: true });
       }
 
       default:
-        return errorResponse("Method not allowed", 405);
+        return errorResponse(new Error("Method not allowed"), 405);
     }
-  } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
+  } catch (error) {
+    console.error("Error in customers endpoint:", error);
+    return errorResponse(error as Error);
   }
 });
