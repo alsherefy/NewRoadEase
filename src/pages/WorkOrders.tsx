@@ -16,7 +16,7 @@ interface WorkOrdersProps {
 
 export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersProps) {
   const { t } = useTranslation();
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, isCustomerServiceOrAdmin } = useAuth();
   const toast = useToast();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);

@@ -110,6 +110,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
     if (user.role === 'admin') return true;
 
+    if (user.role === 'customer_service') {
+      const allowedPermissions: PermissionKey[] = ['customers', 'work_orders', 'invoices', 'inventory', 'dashboard'];
+      if (allowedPermissions.includes(key)) {
+        return true;
+      }
+    }
+
+    if (user.role === 'receptionist') {
+      const viewPermissions: PermissionKey[] = ['customers', 'work_orders', 'dashboard'];
+      const editPermissions: PermissionKey[] = ['customers'];
+
+      if (requireEdit) {
+        return editPermissions.includes(key);
+      }
+      return viewPermissions.includes(key);
+    }
+
     const permission = permissions.find(p => p.permission_key === key);
     if (!permission) return false;
 
