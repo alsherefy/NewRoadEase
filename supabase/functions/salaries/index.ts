@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { getSupabaseClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -9,7 +10,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = getAuthenticatedClient(req);
+    const auth = await authenticateRequest(req);
+    const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const salaryId = pathParts[2];
@@ -22,6 +24,7 @@ Deno.serve(async (req: Request) => {
             .from("salaries")
             .select(`*, technician:technicians(*)`)
             .eq("id", salaryId)
+            .eq("organization_id", auth.organizationId)
             .maybeSingle();
 
           if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
@@ -29,7 +32,7 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        let query = supabase.from("salaries").select(`*, technician:technicians(*)`);
+        let query = supabase.from("salaries").select(`*, technician:technicians(*)`).eq("organization_id", auth.organizationId);
 
         if (technicianId) {
           query = query.eq("technician_id", technicianId);
@@ -50,7 +53,11 @@ Deno.serve(async (req: Request) => {
 
         const { data, error } = await supabase
           .from("salaries")
-          .insert({ ...body, salary_number: salaryNumber })
+          .insert({
+            ...body,
+            salary_number: salaryNumber,
+            organization_id: auth.organizationId,
+          })
           .select()
           .single();
 
@@ -66,6 +73,7 @@ Deno.serve(async (req: Request) => {
           .from("salaries")
           .update({ ...body, updated_at: new Date().toISOString() })
           .eq("id", salaryId)
+          .eq("organization_id", auth.organizationId)
           .select()
           .single();
 
@@ -79,7 +87,8 @@ Deno.serve(async (req: Request) => {
         const { error } = await supabase
           .from("salaries")
           .delete()
-          .eq("id", salaryId);
+          .eq("id", salaryId)
+          .eq("organization_id", auth.organizationId);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse({ success: true });

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { getSupabaseClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -9,7 +10,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = getAuthenticatedClient(req);
+    const auth = await authenticateRequest(req);
+    const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const workOrderId = pathParts[2];
@@ -36,6 +38,7 @@ Deno.serve(async (req: Request) => {
               )
             `)
             .eq("id", workOrderId)
+            .eq("organization_id", auth.organizationId)
             .maybeSingle();
 
           if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
@@ -64,7 +67,8 @@ Deno.serve(async (req: Request) => {
             estimated_completion_date,
             customer:customers!inner(id, name, phone),
             vehicle:vehicles!inner(id, car_make, car_model, plate_number)
-          `, { count: "exact" });
+          `, { count: "exact" })
+          .eq("organization_id", auth.organizationId);
 
         if (status) {
           query = query.eq("status", status);
@@ -91,7 +95,11 @@ Deno.serve(async (req: Request) => {
 
         const { data: workOrder, error: workOrderError } = await supabase
           .from("work_orders")
-          .insert({ ...workOrderData, order_number: orderNumber })
+          .insert({
+            ...workOrderData,
+            order_number: orderNumber,
+            organization_id: auth.organizationId,
+          })
           .select()
           .single();
 
@@ -158,6 +166,7 @@ Deno.serve(async (req: Request) => {
           .from("work_orders")
           .update({ ...body, updated_at: new Date().toISOString() })
           .eq("id", workOrderId)
+          .eq("organization_id", auth.organizationId)
           .select()
           .single();
 
@@ -178,7 +187,8 @@ Deno.serve(async (req: Request) => {
         const { error } = await supabase
           .from("work_orders")
           .delete()
-          .eq("id", workOrderId);
+          .eq("id", workOrderId)
+          .eq("organization_id", auth.organizationId);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse({ success: true });

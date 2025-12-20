@@ -47,7 +47,7 @@ export function errorResponse(
       error: {
         code: "INTERNAL_ERROR",
         message: "An unexpected error occurred",
-        details: Deno.env.get("ENV") === "development" ? error.message : undefined,
+        details: undefined,
       },
     };
     status = status || 500;

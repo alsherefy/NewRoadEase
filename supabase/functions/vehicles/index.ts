@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { getSupabaseClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -9,7 +10,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = getAuthenticatedClient(req);
+    const auth = await authenticateRequest(req);
+    const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const vehicleId = pathParts[2];
@@ -22,6 +24,7 @@ Deno.serve(async (req: Request) => {
             .from("vehicles")
             .select("*")
             .eq("id", vehicleId)
+            .eq("organization_id", auth.organizationId)
             .maybeSingle();
 
           if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
@@ -29,7 +32,7 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        let query = supabase.from("vehicles").select("*");
+        let query = supabase.from("vehicles").select("*").eq("organization_id", auth.organizationId);
 
         if (customerId) {
           query = query.eq("customer_id", customerId);
@@ -45,7 +48,10 @@ Deno.serve(async (req: Request) => {
         const body = await req.json();
         const { data, error } = await supabase
           .from("vehicles")
-          .insert(body)
+          .insert({
+            ...body,
+            organization_id: auth.organizationId,
+          })
           .select()
           .single();
 
@@ -61,6 +67,7 @@ Deno.serve(async (req: Request) => {
           .from("vehicles")
           .update(body)
           .eq("id", vehicleId)
+          .eq("organization_id", auth.organizationId)
           .select()
           .single();
 
@@ -74,7 +81,8 @@ Deno.serve(async (req: Request) => {
         const { error } = await supabase
           .from("vehicles")
           .delete()
-          .eq("id", vehicleId);
+          .eq("id", vehicleId)
+          .eq("organization_id", auth.organizationId);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse({ success: true });
