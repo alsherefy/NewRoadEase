@@ -1,8 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
-import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { ApiError } from "../_shared/types.ts";
+import { getAuthenticatedClient } from "./_shared/utils/supabase.ts";
+import { successResponse, errorResponse, corsResponse } from "./_shared/utils/response.ts";
+import { ApiError } from "./_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -113,15 +113,26 @@ Deno.serve(async (req: Request) => {
           const body = await req.json();
           const { permissions } = body;
 
-          await supabase.from("user_permissions").delete().eq("user_id", userId);
+          const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { autoRefreshToken: false, persistSession: false },
+          });
+
+          const { error: deleteError } = await adminClient
+            .from("user_permissions")
+            .delete()
+            .eq("user_id", userId);
+
+          if (deleteError) throw new ApiError(deleteError.message, "DB_ERROR", 500);
 
           const permissionsToInsert = permissions
             .filter((p: any) => p.can_view || p.can_edit)
             .map((p: any) => ({ user_id: userId, ...p }));
 
           if (permissionsToInsert.length > 0) {
-            const { error } = await supabase.from("user_permissions").insert(permissionsToInsert);
-            if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+            const { error: insertError } = await adminClient
+              .from("user_permissions")
+              .insert(permissionsToInsert);
+            if (insertError) throw new ApiError(insertError.message, "DB_ERROR", 500);
           }
 
           return successResponse({ success: true });
