@@ -16,8 +16,16 @@ Deno.serve(async (req: Request) => {
     const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const userId = pathParts[2];
-    const action = pathParts[3];
+
+    const lastPart = pathParts[pathParts.length - 1];
+    const action = lastPart === 'permissions' ? 'permissions' : undefined;
+
+    let userId: string | undefined;
+    if (action === 'permissions') {
+      userId = pathParts[pathParts.length - 2];
+    } else if (lastPart !== 'users') {
+      userId = lastPart;
+    }
 
     switch (req.method) {
       case "GET": {

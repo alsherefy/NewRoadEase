@@ -14,7 +14,9 @@ Deno.serve(async (req: Request) => {
     const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const invoiceId = pathParts[2];
+
+    const lastPart = pathParts[pathParts.length - 1];
+    const invoiceId = lastPart !== 'invoices' ? lastPart : undefined;
 
     switch (req.method) {
       case "GET": {

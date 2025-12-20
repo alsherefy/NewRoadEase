@@ -15,7 +15,9 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const customerId = pathParts[2];
+
+    const lastPart = pathParts[pathParts.length - 1];
+    const customerId = lastPart !== 'customers' ? lastPart : undefined;
 
     const customersService = new CustomersService(user);
 

@@ -14,7 +14,9 @@ Deno.serve(async (req: Request) => {
     const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const reportType = pathParts[2];
+
+    const lastPart = pathParts[pathParts.length - 1];
+    const reportType = lastPart !== 'reports' ? lastPart : undefined;
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
 
