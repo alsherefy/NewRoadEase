@@ -14,6 +14,17 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
+function getAuthenticatedClient(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader) {
+    const token = authHeader.replace("Bearer ", "");
+    return createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
 interface JWTPayload {
   userId: string;
   role: 'admin' | 'staff' | 'user';
@@ -116,7 +127,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const auth = await authenticateRequest(req);
-    const supabase = getSupabaseClient();
+    const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const workOrderId = pathParts[pathParts.length - 1] !== 'work-orders' ? pathParts[pathParts.length - 1] : undefined;
