@@ -64,7 +64,6 @@ Deno.serve(async (req: Request) => {
             total_labor_cost,
             created_at,
             updated_at,
-            estimated_completion_date,
             customer:customers!inner(id, name, phone),
             vehicle:vehicles!inner(id, car_make, car_model, plate_number)
           `, { count: "exact" })
