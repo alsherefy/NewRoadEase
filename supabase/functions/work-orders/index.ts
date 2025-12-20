@@ -14,7 +14,7 @@ Deno.serve(async (req: Request) => {
     const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const workOrderId = pathParts[2];
+    const workOrderId = pathParts[pathParts.length - 1] !== 'work-orders' ? pathParts[pathParts.length - 1] : undefined;
 
     switch (req.method) {
       case "GET": {
