@@ -150,6 +150,7 @@
     "add_service": "إضافة خدمة",
     "add_spare_part": "إضافة قطعة غيار",
     "confirm_delete": "هل أنت متأكد من حذف طلب الصيانة؟",
+    "confirm_delete_message": "لا يمكن التراجع عن هذا الإجراء",
     "success_created": "تم إنشاء طلب الصيانة بنجاح",
     "success_updated": "تم تحديث طلب الصيانة بنجاح",
     "success_deleted": "تم حذف طلب الصيانة بنجاح",

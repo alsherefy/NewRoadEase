@@ -96,33 +96,24 @@ export function Expenses() {
 
     try {
       if (editingExpense) {
-        const { error } = await supabase
-          .from('expenses')
-          .update({
-            category: formData.category,
-            description: formData.description,
-            payment_method: formData.payment_method,
-            receipt_number: formData.receipt_number || null,
-            notes: formData.notes,
-            expense_date: formData.expense_date
-          })
-          .eq('id', editingExpense.id);
-
-        if (error) throw error;
-        toast.success(t('expenses.success_updated'));
-      } else {
-        const { data: expenseNumber } = await supabase.rpc('generate_expense_number');
-
-        const expenseData: any = {
-          expense_number: expenseNumber,
+        await expensesService.updateExpense(editingExpense.id, {
           category: formData.category,
           description: formData.description,
           payment_method: formData.payment_method,
-          receipt_number: formData.receipt_number || null,
+          receipt_number: formData.receipt_number || undefined,
+          notes: formData.notes,
+          expense_date: formData.expense_date
+        });
+        toast.success(t('expenses.success_updated'));
+      } else {
+        const expenseData: any = {
+          category: formData.category,
+          description: formData.description,
+          payment_method: formData.payment_method,
+          receipt_number: formData.receipt_number || undefined,
           notes: formData.notes,
           expense_date: formData.expense_date,
-          payment_type: formData.payment_type,
-          created_by: user?.id
+          payment_type: formData.payment_type
         };
 
         if (formData.payment_type === 'full') {
@@ -132,11 +123,7 @@ export function Expenses() {
           expenseData.installment_months = Number(formData.installment_months);
         }
 
-        const { error } = await supabase
-          .from('expenses')
-          .insert(expenseData);
-
-        if (error) throw error;
+        await expensesService.createExpense(expenseData);
         toast.success(t('expenses.success_created'));
       }
 
