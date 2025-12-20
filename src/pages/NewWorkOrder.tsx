@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Customer, Vehicle, Technician } from '../types';
 import { Plus, Trash2, ArrowRight, Save } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { displayNumber, normalizeNumberInput } from '../utils/numberUtils';
 
 interface Service {
@@ -26,6 +27,7 @@ interface NewWorkOrderProps {
 export function NewWorkOrder({ orderId, onBack, onSuccess }: NewWorkOrderProps) {
   const { t } = useTranslation();
   const toast = useToast();
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -318,6 +320,7 @@ export function NewWorkOrder({ orderId, onBack, onSuccess }: NewWorkOrderProps) 
             order_number: orderNumber,
             status: 'in_progress',
             total_labor_cost: totalLaborCost,
+            organization_id: user?.organization_id,
           }])
           .select()
           .single();
