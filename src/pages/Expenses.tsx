@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Plus, Edit, Trash2, Search, Calendar, TrendingDown, CreditCard, Banknote, Receipt, Clock } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { expensesService, ServiceError } from '../services';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -69,13 +69,8 @@ export function Expenses() {
 
   const fetchExpenses = async () => {
     try {
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('expense_date', { ascending: false });
-
-      if (error) throw error;
-      setExpenses(data || []);
+      const data = await expensesService.getAllExpenses();
+      setExpenses(data as Expense[]);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       toast.error(t('expenses.error_create'));
@@ -166,12 +161,7 @@ export function Expenses() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from('expenses')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await expensesService.deleteExpense(id);
       toast.success(t('expenses.success_deleted'));
       fetchExpenses();
     } catch (error) {

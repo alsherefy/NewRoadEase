@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings as SettingsIcon, Save, Building2, Mail, Phone, MapPin, FileText, Receipt, Percent } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { settingsService, ServiceError } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { normalizeNumberInput } from '../utils/numberUtils';
@@ -44,12 +44,7 @@ export function Settings() {
 
   async function loadSettings() {
     try {
-      const { data, error } = await supabase
-        .from('workshop_settings')
-        .select('*')
-        .maybeSingle();
-
-      if (error) throw error;
+      const data = await settingsService.getWorkshopSettings();
 
       if (data) {
         setSettings(data);
@@ -84,29 +79,19 @@ export function Settings() {
 
     try {
       if (settings?.id) {
-        const { error } = await supabase
-          .from('workshop_settings')
-          .update({
-            name: formData.name,
-            phone: formData.phone,
-            address: formData.address,
-            email: formData.email,
-            tax_number: formData.tax_number,
-            commercial_registration: formData.commercial_registration,
-            tax_enabled: formData.tax_enabled,
-            tax_rate: formData.tax_rate,
-            tax_type: formData.tax_type,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', settings.id);
-
-        if (error) throw error;
+        await settingsService.updateWorkshopSettings(settings.id, {
+          name: formData.name,
+          phone: formData.phone,
+          address: formData.address,
+          email: formData.email,
+          tax_number: formData.tax_number,
+          commercial_registration: formData.commercial_registration,
+          tax_enabled: formData.tax_enabled,
+          tax_rate: formData.tax_rate,
+          tax_type: formData.tax_type,
+        });
       } else {
-        const { error } = await supabase
-          .from('workshop_settings')
-          .insert([formData]);
-
-        if (error) throw error;
+        await settingsService.createWorkshopSettings(formData);
       }
 
       toast.success(t('settings.success_updated'));

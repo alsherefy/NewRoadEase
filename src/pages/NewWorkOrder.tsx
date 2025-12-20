@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { customersService, vehiclesService, techniciansService, ServiceError } from '../services';
 import { supabase } from '../lib/supabase';
 import { Customer, Vehicle, Technician } from '../types';
 import { Plus, Trash2, ArrowRight, Save } from 'lucide-react';
@@ -70,26 +71,27 @@ export function NewWorkOrder({ orderId, onBack, onSuccess }: NewWorkOrderProps) 
   }, [selectedCustomerId]);
 
   async function loadData() {
-    const [customersResult, techniciansResult] = await Promise.all([
-      supabase.from('customers').select('*').order('created_at', { ascending: false }),
-      supabase.from('technicians').select('*').eq('is_active', true),
-    ]);
-    setCustomers(customersResult.data || []);
-    setTechnicians(techniciansResult.data || []);
+    try {
+      const [customersData, techniciansData] = await Promise.all([
+        customersService.getAllCustomers(),
+        techniciansService.getActiveTechnicians(),
+      ]);
+      setCustomers(customersData);
+      setTechnicians(techniciansData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
   }
 
   async function loadVehicles(customerId: string) {
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false });
-
-    if (!error) {
-      setVehicles(data || []);
+    try {
+      const data = await vehiclesService.getVehiclesByCustomer(customerId);
+      setVehicles(data);
       if (data && data.length === 1) {
         setSelectedVehicleId(data[0].id);
       }
+    } catch (error) {
+      console.error('Error loading vehicles:', error);
     }
   }
 

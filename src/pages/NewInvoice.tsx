@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, Plus, Trash2, Save, Receipt, Percent, CreditCard, Banknote } from 'lucide-react';
+import { customersService, vehiclesService, workOrdersService, settingsService, ServiceError } from '../services';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
@@ -96,51 +97,53 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
   }, [invoiceId]);
 
   const fetchCustomers = async () => {
-    const { data } = await supabase.from('customers').select('*').order('name');
-    setCustomers(data || []);
+    try {
+      const data = await customersService.getAllCustomers({ orderBy: 'name', orderDirection: 'asc' });
+      setCustomers(data as Customer[]);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
   };
 
   const fetchVehicles = async (customerId: string) => {
-    const { data } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('customer_id', customerId);
-    setVehicles(data || []);
+    try {
+      const data = await vehiclesService.getVehiclesByCustomer(customerId);
+      setVehicles(data as Vehicle[]);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    }
   };
 
   const fetchWorkOrders = async () => {
-    const { data } = await supabase
-      .from('work_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setWorkOrders(data || []);
+    try {
+      const data = await workOrdersService.getAllWorkOrders();
+      setWorkOrders(data as WorkOrder[]);
+    } catch (error) {
+      console.error('Error fetching work orders:', error);
+    }
   };
 
   const fetchWorkshopSettings = async () => {
-    const { data } = await supabase
-      .from('workshop_settings')
-      .select('tax_rate, tax_enabled, tax_type')
-      .maybeSingle();
+    try {
+      const data = await settingsService.getWorkshopSettings();
 
-    if (data) {
-      const isTaxEnabled = data.tax_enabled === true;
-      console.log('Tax Settings Loaded:', {
-        tax_enabled: data.tax_enabled,
-        isTaxEnabled,
-        tax_rate: data.tax_rate,
-        tax_type: data.tax_type
-      });
+      if (data) {
+        const isTaxEnabled = data.tax_enabled === true;
+        setTaxEnabled(isTaxEnabled);
 
-      setTaxEnabled(isTaxEnabled);
-
-      if (isTaxEnabled) {
-        setTaxRate(Number(data.tax_rate) || 15);
+        if (isTaxEnabled) {
+          setTaxRate(Number(data.tax_rate) || 15);
+        } else {
+          setTaxRate(0);
+        }
+        setTaxType(data.tax_type || 'exclusive');
       } else {
+        setTaxEnabled(false);
         setTaxRate(0);
+        setTaxType('exclusive');
       }
-      setTaxType(data.tax_type || 'exclusive');
-    } else {
-      console.log('No tax settings found, using defaults (disabled)');
+    } catch (error) {
+      console.error('Error fetching workshop settings:', error);
       setTaxEnabled(false);
       setTaxRate(0);
       setTaxType('exclusive');

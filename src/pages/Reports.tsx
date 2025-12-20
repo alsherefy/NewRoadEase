@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { reportsService, ServiceError } from '../services';
 import { Technician } from '../types';
 import { displayNumber, toEnglishDigits } from '../utils/numberUtils';
 import {
@@ -87,58 +87,8 @@ export function Reports() {
 
   async function loadOverviewStats() {
     try {
-      let workOrdersQuery = supabase.from('work_orders').select('*');
-      let invoicesQuery = supabase.from('invoices').select('*');
-
-      if (startDate) {
-        workOrdersQuery = workOrdersQuery.gte('created_at', startDate);
-        invoicesQuery = invoicesQuery.gte('created_at', startDate);
-      }
-      if (endDate) {
-        workOrdersQuery = workOrdersQuery.lte('created_at', endDate);
-        invoicesQuery = invoicesQuery.lte('created_at', endDate);
-      }
-
-      const [
-        { data: workOrders },
-        { data: invoices },
-        { data: sparePartsSold },
-      ] = await Promise.all([
-        workOrdersQuery,
-        invoicesQuery,
-        supabase.from('work_order_spare_parts').select('quantity, unit_price'),
-      ]);
-
-      const completedOrders = workOrders?.filter(wo => wo.status === 'completed').length || 0;
-      const pendingOrders = workOrders?.filter(wo => wo.status === 'pending').length || 0;
-      const inProgressOrders = workOrders?.filter(wo => wo.status === 'in_progress').length || 0;
-
-      const paidInvoices = invoices?.filter(inv => inv.status === 'paid').length || 0;
-      const unpaidInvoices = invoices?.filter(inv => inv.status === 'unpaid' || inv.status === 'partially_paid').length || 0;
-
-      const totalRevenue = invoices?.reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0) || 0;
-      const sparePartsRevenue = sparePartsSold?.reduce((sum, sp) => sum + (sp.quantity * sp.unit_price), 0) || 0;
-      const totalSparePartsSold = sparePartsSold?.reduce((sum, sp) => sum + sp.quantity, 0) || 0;
-
-      const { data: allSpareParts } = await supabase
-        .from('spare_parts')
-        .select('*');
-
-      const lowStockData = allSpareParts?.filter(sp => sp.quantity <= sp.minimum_quantity) || [];
-
-      setOverviewStats({
-        totalRevenue,
-        totalWorkOrders: workOrders?.length || 0,
-        completedOrders,
-        pendingOrders,
-        inProgressOrders,
-        totalInvoices: invoices?.length || 0,
-        paidInvoices,
-        unpaidInvoices,
-        totalSparePartsSold,
-        sparePartsRevenue,
-        lowStockItems: lowStockData?.length || 0,
-      });
+      const stats = await reportsService.getOverviewStats(startDate || undefined, endDate || undefined);
+      setOverviewStats(stats);
     } catch (error) {
       console.error('Error loading overview stats:', error);
     }
@@ -146,22 +96,8 @@ export function Reports() {
 
   async function loadInventoryStats() {
     try {
-      const { data: spareParts } = await supabase
-        .from('spare_parts')
-        .select('*');
-
-      const totalValue = spareParts?.reduce((sum, sp) => sum + (sp.quantity * Number(sp.unit_price)), 0) || 0;
-      const lowStockItems = spareParts?.filter(sp => sp.quantity <= sp.minimum_quantity) || [];
-
-      setInventoryStats({
-        totalItems: spareParts?.length || 0,
-        totalValue,
-        lowStockItems: lowStockItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          minimum_quantity: item.minimum_quantity,
-        })),
-      });
+      const stats = await reportsService.getInventoryStats();
+      setInventoryStats(stats);
     } catch (error) {
       console.error('Error loading inventory stats:', error);
     }
@@ -169,67 +105,8 @@ export function Reports() {
 
   async function loadTechnicianReports() {
     try {
-      const { data: technicians, error: techError } = await supabase
-        .from('technicians')
-        .select('*')
-        .eq('is_active', true);
-
-      if (techError) throw techError;
-
-      const reportsData: TechnicianReport[] = [];
-
-      for (const technician of technicians || []) {
-        let query = supabase
-          .from('technician_assignments')
-          .select(`
-            *,
-            service:work_order_services!inner(
-              *,
-              work_order:work_orders!inner(status, created_at)
-            )
-          `)
-          .eq('technician_id', technician.id)
-          .eq('service.work_order.status', 'completed');
-
-        if (startDate) {
-          query = query.gte('service.work_order.created_at', startDate);
-        }
-        if (endDate) {
-          query = query.lte('service.work_order.created_at', endDate);
-        }
-
-        const { data: assignments } = await query;
-
-        const totalRevenue = assignments?.reduce((sum, a) => sum + (a.share_amount || 0), 0) || 0;
-        const jobsCompleted = assignments?.length || 0;
-        const averageJobValue = jobsCompleted > 0 ? totalRevenue / jobsCompleted : 0;
-
-        let totalEarnings = 0;
-        if (technician.contract_type === 'percentage') {
-          totalEarnings = (totalRevenue * technician.percentage) / 100;
-        } else {
-          totalEarnings = technician.fixed_salary;
-        }
-
-        const jobs = (assignments || []).map((a: any) => ({
-          service_type: a.service?.service_type || '',
-          description: a.service?.description || '',
-          share_amount: a.share_amount,
-          created_at: a.service?.work_order?.created_at || '',
-        }));
-
-        reportsData.push({
-          technician,
-          totalRevenue,
-          totalEarnings,
-          jobsCompleted,
-          averageJobValue,
-          jobs,
-        });
-      }
-
-      reportsData.sort((a, b) => b.totalRevenue - a.totalRevenue);
-      setReports(reportsData);
+      const reportsData = await reportsService.getTechnicianReports(startDate || undefined, endDate || undefined);
+      setReports(reportsData as TechnicianReport[]);
     } catch (error) {
       console.error('Error loading reports:', error);
     }

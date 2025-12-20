@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Printer, CheckCircle, XCircle, Clock, Edit, CreditCard, Banknote } from 'lucide-react';
+import { settingsService, invoicesService, ServiceError } from '../services';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -129,12 +130,12 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
   };
 
   const fetchWorkshopSettings = async () => {
-    const { data } = await supabase
-      .from('workshop_settings')
-      .select('*')
-      .maybeSingle();
-
-    setWorkshop(data);
+    try {
+      const data = await settingsService.getWorkshopSettings();
+      setWorkshop(data as WorkshopSettings | null);
+    } catch (error) {
+      console.error('Error fetching workshop settings:', error);
+    }
   };
 
   const handlePrint = () => {

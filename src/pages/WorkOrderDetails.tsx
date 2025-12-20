@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { settingsService, workOrdersService, ServiceError } from '../services';
 import { supabase } from '../lib/supabase';
 import { WorkOrder, WorkOrderService, TechnicianAssignment } from '../types';
 import { ArrowRight, User, Car, Calendar, DollarSign, FileText, Printer, Receipt } from 'lucide-react';
@@ -96,13 +97,7 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
 
   async function loadWorkshopSettings() {
     try {
-      const { data, error } = await supabase
-        .from('workshop_settings')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
+      const data = await settingsService.getWorkshopSettings();
       if (data) {
         setWorkshopSettings(data);
       }

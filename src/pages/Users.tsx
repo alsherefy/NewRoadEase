@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usersService, ServiceError } from '../services';
 import { supabase } from '../lib/supabase';
 import { User, UserPermission, PermissionKey } from '../types';
 import {
@@ -89,16 +90,8 @@ export function Users() {
 
   async function loadUsers() {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          *,
-          permissions:user_permissions(*)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setUsers(data || []);
+      const data = await usersService.getAllUsers();
+      setUsers(data as UserWithPerms[]);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {
@@ -176,9 +169,7 @@ export function Users() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('users').delete().eq('id', userId);
-
-      if (error) throw error;
+      await usersService.deleteUser(userId);
       await loadUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -188,12 +179,7 @@ export function Users() {
 
   async function toggleUserStatus(userId: string, currentStatus: boolean) {
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ is_active: !currentStatus })
-        .eq('id', userId);
-
-      if (error) throw error;
+      await usersService.updateUser(userId, { is_active: !currentStatus });
       await loadUsers();
     } catch (error) {
       console.error('Error toggling user status:', error);
@@ -231,28 +217,13 @@ export function Users() {
     setLoading(true);
 
     try {
-      await supabase
-        .from('user_permissions')
-        .delete()
-        .eq('user_id', selectedUser.id);
+      const permissionsToSave = Object.entries(permissionsData).map(([key, value]) => ({
+        permission_key: key,
+        can_view: value.can_view,
+        can_edit: value.can_edit,
+      }));
 
-      const permissionsToInsert = Object.entries(permissionsData)
-        .filter(([_, value]) => value.can_view || value.can_edit)
-        .map(([key, value]) => ({
-          user_id: selectedUser.id,
-          permission_key: key as PermissionKey,
-          can_view: value.can_view,
-          can_edit: value.can_edit,
-        }));
-
-      if (permissionsToInsert.length > 0) {
-        const { error } = await supabase
-          .from('user_permissions')
-          .insert(permissionsToInsert);
-
-        if (error) throw error;
-      }
-
+      await usersService.updatePermissions(selectedUser.id, permissionsToSave);
       await loadUsers();
       setShowPermissionsModal(false);
     } catch (error) {
@@ -343,12 +314,7 @@ export function Users() {
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ role: roleFormData.role })
-        .eq('id', roleFormData.user_id);
-
-      if (error) throw error;
+      await usersService.updateUser(roleFormData.user_id, { role: roleFormData.role });
 
       toast.success(t('users.success_role_updated'));
       await loadUsers();
