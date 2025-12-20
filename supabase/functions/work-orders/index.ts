@@ -4,7 +4,7 @@ import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "..
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { validateUUID, validatePagination, validateRequestBody } from "../_shared/utils/validation.ts";
 import { RESOURCES } from "../_shared/constants/resources.ts";
-import { createClient } from "../_shared/utils/supabase.ts";
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
@@ -14,7 +14,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await authenticateRequest(req);
-    const supabase = createClient();
+    const supabase = getAuthenticatedClient(req);
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
