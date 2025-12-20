@@ -78,9 +78,15 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
   };
 
   const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.orderId) {
+      toast.error(t('work_orders.error_delete'));
+      return;
+    }
+
     try {
       await workOrdersService.deleteWorkOrder(deleteConfirm.orderId);
       toast.success(t('work_orders.success_deleted'));
+      setDeleteConfirm({ isOpen: false, orderId: '', orderNumber: '' });
       await loadOrders(true);
     } catch (error) {
       console.error('Error deleting work order:', error);

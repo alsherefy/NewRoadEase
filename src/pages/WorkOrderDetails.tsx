@@ -202,6 +202,7 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
           work_order_id: orderId,
           customer_id: order.customer_id,
           vehicle_id: order.vehicle_id,
+          organization_id: order.organization_id,
           subtotal: subtotal,
           tax_rate: taxEnabled ? taxRate : 0,
           tax_amount: taxAmount,
