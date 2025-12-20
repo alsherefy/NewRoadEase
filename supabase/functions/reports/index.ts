@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { getSupabaseClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -9,7 +10,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = getAuthenticatedClient(req);
+    const auth = await authenticateRequest(req);
+    const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const reportType = pathParts[2];
@@ -22,8 +24,8 @@ Deno.serve(async (req: Request) => {
 
     switch (reportType) {
       case "overview": {
-        let workOrdersQuery = supabase.from("work_orders").select("*");
-        let invoicesQuery = supabase.from("invoices").select("*");
+        let workOrdersQuery = supabase.from("work_orders").select("*").eq("organization_id", auth.organizationId);
+        let invoicesQuery = supabase.from("invoices").select("*").eq("organization_id", auth.organizationId);
 
         if (startDate) {
           workOrdersQuery = workOrdersQuery.gte("created_at", startDate);
@@ -38,7 +40,7 @@ Deno.serve(async (req: Request) => {
           workOrdersQuery,
           invoicesQuery,
           supabase.from("work_order_spare_parts").select("quantity, unit_price"),
-          supabase.from("spare_parts").select("*"),
+          supabase.from("spare_parts").select("*").eq("organization_id", auth.organizationId),
         ]);
 
         const workOrders = workOrdersResult.data || [];
@@ -74,7 +76,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case "inventory": {
-        const { data: spareParts, error } = await supabase.from("spare_parts").select("*");
+        const { data: spareParts, error } = await supabase.from("spare_parts").select("*").eq("organization_id", auth.organizationId);
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
         const totalValue = (spareParts || []).reduce((sum: number, sp: any) => sum + (sp.quantity * Number(sp.unit_price)), 0);
@@ -95,7 +97,8 @@ Deno.serve(async (req: Request) => {
         const { data: technicians, error: techError } = await supabase
           .from("technicians")
           .select("*")
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .eq("organization_id", auth.organizationId);
 
         if (techError) throw new ApiError(techError.message, "DATABASE_ERROR", 500);
 
