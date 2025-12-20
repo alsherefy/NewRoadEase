@@ -1,8 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getSupabaseClient } from "../_shared/utils/supabase.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { ApiError } from "../_shared/types.ts";
+import { getSupabaseClient } from "./_shared/utils/supabase.ts";
+import { authenticateRequest } from "./_shared/middleware/auth.ts";
+import { successResponse, errorResponse, corsResponse } from "./_shared/utils/response.ts";
+import { ApiError } from "./_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -14,8 +14,16 @@ Deno.serve(async (req: Request) => {
     const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const expenseId = pathParts[2];
-    const action = pathParts[3];
+
+    const lastPart = pathParts[pathParts.length - 1];
+    const action = lastPart === 'installments' ? 'installments' : undefined;
+
+    let expenseId: string | undefined;
+    if (action === 'installments') {
+      expenseId = pathParts[pathParts.length - 2];
+    } else if (lastPart !== 'expenses') {
+      expenseId = lastPart;
+    }
 
     switch (req.method) {
       case "GET": {
