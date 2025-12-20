@@ -46,14 +46,14 @@ export function Users() {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [roleFormData, setRoleFormData] = useState({
     user_id: '',
-    role: 'employee' as 'admin' | 'employee' | 'customer_service',
+    role: 'staff' as 'admin' | 'staff' | 'user',
   });
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     full_name: '',
-    role: 'employee' as 'admin' | 'employee' | 'customer_service',
+    role: 'staff' as 'admin' | 'staff' | 'user',
   });
 
   const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -105,7 +105,7 @@ export function Users() {
       email: '',
       password: '',
       full_name: '',
-      role: 'employee',
+      role: 'staff',
     });
     setShowModal(true);
   }
@@ -148,7 +148,7 @@ export function Users() {
         email: '',
         password: '',
         full_name: '',
-        role: 'employee',
+        role: 'staff',
       });
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -321,7 +321,7 @@ export function Users() {
       setShowRoleModal(false);
       setRoleFormData({
         user_id: '',
-        role: 'employee',
+        role: 'staff',
       });
     } catch (error: any) {
       console.error('Error updating role:', error);
@@ -417,16 +417,16 @@ export function Users() {
                   className={`text-sm font-bold ${
                     user.role === 'admin'
                       ? 'text-orange-600'
-                      : user.role === 'customer_service'
+                      : user.role === 'user'
                       ? 'text-green-600'
                       : 'text-blue-600'
                   }`}
                 >
                   {user.role === 'admin'
                     ? t('roles.admin')
-                    : user.role === 'customer_service'
-                    ? t('roles.customer_service')
-                    : t('roles.employee')}
+                    : user.role === 'user'
+                    ? t('roles.user')
+                    : t('roles.staff')}
                 </span>
               </div>
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -441,7 +441,7 @@ export function Users() {
               </div>
             </div>
 
-            {(user.role === 'employee' || user.role === 'customer_service') && (
+            {(user.role === 'staff' || user.role === 'user') && (
               <button
                 onClick={() => openPermissionsModal(user)}
                 className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
@@ -548,13 +548,13 @@ export function Users() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      role: e.target.value as 'admin' | 'employee' | 'customer_service',
+                      role: e.target.value as 'admin' | 'staff' | 'user',
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="employee">{t('roles.employee')}</option>
-                  <option value="customer_service">{t('roles.customer_service')}</option>
+                  <option value="staff">{t('roles.staff')}</option>
+                  <option value="user">{t('roles.user')}</option>
                   <option value="admin">{t('roles.admin')}</option>
                 </select>
               </div>
@@ -766,13 +766,13 @@ export function Users() {
                   onChange={(e) =>
                     setRoleFormData({
                       ...roleFormData,
-                      role: e.target.value as 'admin' | 'employee' | 'customer_service',
+                      role: e.target.value as 'admin' | 'staff' | 'user',
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
-                  <option value="employee">{t('roles.employee')}</option>
-                  <option value="customer_service">{t('roles.customer_service')}</option>
+                  <option value="staff">{t('roles.staff')}</option>
+                  <option value="user">{t('roles.user')}</option>
                   <option value="admin">{t('roles.admin')}</option>
                 </select>
               </div>

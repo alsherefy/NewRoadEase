@@ -101,7 +101,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               <div className="text-right">
                 <p className="text-white font-medium text-sm">{user?.full_name}</p>
                 <p className="text-blue-200 text-xs">
-                  {user?.role === 'admin' ? t('roles.admin') : t('roles.employee')}
+                  {user?.role === 'admin' ? t('roles.admin') : user?.role === 'user' ? t('roles.user') : t('roles.staff')}
                 </p>
               </div>
             </div>
@@ -189,7 +189,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               <div>
                 <p className="text-white font-medium text-sm">{user?.full_name}</p>
                 <p className="text-blue-200 text-xs">
-                  {user?.role === 'admin' ? t('roles.admin') : t('roles.employee')}
+                  {user?.role === 'admin' ? t('roles.admin') : user?.role === 'user' ? t('roles.user') : t('roles.staff')}
                 </p>
               </div>
             </div>

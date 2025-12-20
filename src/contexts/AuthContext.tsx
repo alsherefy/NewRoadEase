@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData);
 
-        if (userData.role === 'employee' || userData.role === 'customer_service') {
+        if (userData.role === 'staff' || userData.role === 'user') {
           const { data: permsData } = await supabase
             .from('user_permissions')
             .select('*')
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function isCustomerServiceOrAdmin(): boolean {
-    return user?.role === 'admin' || user?.role === 'customer_service';
+    return user?.role === 'admin' || user?.role === 'staff';
   }
 
   const value = {

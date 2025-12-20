@@ -24,8 +24,8 @@
   },
   "roles": {
     "admin": "مدير",
-    "employee": "موظف",
-    "customer_service": "خدمة العملاء"
+    "staff": "موظف",
+    "user": "مستخدم"
   },
   "nav": {
     "dashboard": "لوحة التحكم",

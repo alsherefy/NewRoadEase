@@ -141,7 +141,7 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'employee' | 'customer_service';
+  role: 'admin' | 'staff' | 'user';
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -24,8 +24,8 @@
   },
   "roles": {
     "admin": "Admin",
-    "employee": "Employee",
-    "customer_service": "Customer Service"
+    "staff": "Staff",
+    "user": "User"
   },
   "nav": {
     "dashboard": "Dashboard",
