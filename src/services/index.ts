@@ -1,17 +1,9 @@
 import { supabase } from '../lib/supabase';
+import { apiClient, ApiError } from './apiClient';
 import { User, UserPermission, Customer, Vehicle, WorkOrder, Invoice, Technician, Salary, SparePart, Expense } from '../types';
 import type { User as SupabaseUser, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
-export class ServiceError extends Error {
-  constructor(
-    message: string,
-    public code?: string,
-    public details?: unknown
-  ) {
-    super(message);
-    this.name = 'ServiceError';
-  }
-}
+export { ApiError as ServiceError } from './apiClient';
 
 export interface QueryOptions {
   limit?: number;
@@ -28,235 +20,190 @@ export interface PaginatedResponse<T> {
 
 class WorkOrdersService {
   async getPaginatedWorkOrders(options: QueryOptions): Promise<PaginatedResponse<WorkOrder>> {
-    const limit = options.limit || 50;
-    const offset = options.offset || 0;
+    const params: Record<string, string> = {};
+    if (options.limit) params.limit = String(options.limit);
+    if (options.offset) params.offset = String(options.offset);
+    if (options.orderBy) params.orderBy = options.orderBy;
+    if (options.orderDirection) params.orderDir = options.orderDirection;
 
-    const { data, error, count } = await supabase
-      .from('work_orders')
-      .select(`
-        *,
-        customer:customers(id, name, phone),
-        vehicle:vehicles(id, car_make, car_model, plate_number)
-      `, { count: 'exact' })
-      .order(options.orderBy || 'created_at', { ascending: options.orderDirection === 'asc' })
-      .range(offset, offset + limit - 1);
+    return apiClient.get<PaginatedResponse<WorkOrder>>('work-orders', params);
+  }
 
-    if (error) throw new ServiceError(error.message);
+  async getWorkOrderById(id: string): Promise<WorkOrder> {
+    return apiClient.get<WorkOrder>(`work-orders/${id}`);
+  }
 
-    return {
-      data: data || [],
-      count: count || 0,
-      hasMore: offset + limit < (count || 0)
-    };
+  async createWorkOrder(data: Partial<WorkOrder> & { services?: unknown[]; spare_parts?: unknown[] }): Promise<WorkOrder> {
+    return apiClient.post<WorkOrder>('work-orders', data);
+  }
+
+  async updateWorkOrder(id: string, data: Partial<WorkOrder>): Promise<WorkOrder> {
+    return apiClient.put<WorkOrder>(`work-orders/${id}`, data);
   }
 
   async deleteWorkOrder(id: string): Promise<void> {
-    const { error } = await supabase.from('work_orders').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`work-orders/${id}`);
   }
 }
 
 class InvoicesService {
   async getPaginatedInvoices(options: QueryOptions): Promise<PaginatedResponse<Invoice>> {
-    const limit = options.limit || 50;
-    const offset = options.offset || 0;
+    const params: Record<string, string> = {};
+    if (options.limit) params.limit = String(options.limit);
+    if (options.offset) params.offset = String(options.offset);
+    if (options.orderBy) params.orderBy = options.orderBy;
+    if (options.orderDirection) params.orderDir = options.orderDirection;
 
-    const { data, error, count } = await supabase
-      .from('invoices')
-      .select('*', { count: 'exact' })
-      .order(options.orderBy || 'created_at', { ascending: options.orderDirection === 'asc' })
-      .range(offset, offset + limit - 1);
+    return apiClient.get<PaginatedResponse<Invoice>>('invoices', params);
+  }
 
-    if (error) throw new ServiceError(error.message);
+  async getInvoiceById(id: string): Promise<Invoice> {
+    return apiClient.get<Invoice>(`invoices/${id}`);
+  }
 
-    return {
-      data: data || [],
-      count: count || 0,
-      hasMore: offset + limit < (count || 0)
-    };
+  async createInvoice(data: Partial<Invoice> & { items?: unknown[] }): Promise<Invoice> {
+    return apiClient.post<Invoice>('invoices', data);
+  }
+
+  async updateInvoice(id: string, data: Partial<Invoice> & { items?: unknown[] }): Promise<Invoice> {
+    return apiClient.put<Invoice>(`invoices/${id}`, data);
   }
 
   async deleteInvoice(id: string): Promise<void> {
-    await supabase.from('invoice_items').delete().eq('invoice_id', id);
-    const { error } = await supabase.from('invoices').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`invoices/${id}`);
   }
 }
 
 class CustomersService {
   async getAllCustomers(options?: QueryOptions): Promise<Customer[]> {
-    let query = supabase.from('customers').select('*');
+    const params: Record<string, string> = {};
+    if (options?.orderBy) params.orderBy = options.orderBy;
+    if (options?.orderDirection) params.orderDir = options.orderDirection;
 
-    if (options?.orderBy) {
-      query = query.order(options.orderBy, { ascending: options.orderDirection === 'asc' });
-    }
-
-    const { data, error } = await query;
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+    const result = await apiClient.get<PaginatedResponse<Customer>>('customers', { ...params, limit: '1000' });
+    return result.data;
   }
 
   async getPaginatedCustomers(options: QueryOptions): Promise<PaginatedResponse<Customer>> {
-    const limit = options.limit || 30;
-    const offset = options.offset || 0;
+    const params: Record<string, string> = {};
+    if (options.limit) params.limit = String(options.limit);
+    if (options.offset) params.offset = String(options.offset);
+    if (options.orderBy) params.orderBy = options.orderBy;
+    if (options.orderDirection) params.orderDir = options.orderDirection;
 
-    const { data, error, count } = await supabase
-      .from('customers')
-      .select('*', { count: 'exact' })
-      .order(options.orderBy || 'created_at', { ascending: options.orderDirection === 'asc' })
-      .range(offset, offset + limit - 1);
+    return apiClient.get<PaginatedResponse<Customer>>('customers', params);
+  }
 
-    if (error) throw new ServiceError(error.message);
-
-    return {
-      data: data || [],
-      count: count || 0,
-      hasMore: offset + limit < (count || 0)
-    };
+  async getCustomerById(id: string): Promise<Customer> {
+    return apiClient.get<Customer>(`customers/${id}`);
   }
 
   async createCustomer(data: Omit<Customer, 'id' | 'created_at'>): Promise<Customer> {
-    const { data: result, error } = await supabase
-      .from('customers')
-      .insert(data)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.post<Customer>('customers', data);
   }
 
   async updateCustomer(id: string, data: Partial<Customer>): Promise<Customer> {
-    const { data: result, error } = await supabase
-      .from('customers')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.put<Customer>(`customers/${id}`, data);
   }
 
   async deleteCustomer(id: string): Promise<void> {
-    const { error } = await supabase.from('customers').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`customers/${id}`);
   }
 }
 
 class VehiclesService {
   async getVehiclesByCustomer(customerId: string): Promise<Vehicle[]> {
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false });
+    return apiClient.get<Vehicle[]>('vehicles', { customerId });
+  }
 
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getVehicleById(id: string): Promise<Vehicle> {
+    return apiClient.get<Vehicle>(`vehicles/${id}`);
   }
 
   async createVehicle(data: Omit<Vehicle, 'id' | 'created_at'>): Promise<Vehicle> {
-    const { data: result, error } = await supabase
-      .from('vehicles')
-      .insert(data)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.post<Vehicle>('vehicles', data);
   }
 
   async updateVehicle(id: string, data: Partial<Vehicle>): Promise<Vehicle> {
-    const { data: result, error } = await supabase
-      .from('vehicles')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.put<Vehicle>(`vehicles/${id}`, data);
   }
 
   async deleteVehicle(id: string): Promise<void> {
-    const { error } = await supabase.from('vehicles').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`vehicles/${id}`);
   }
 }
 
 class TechniciansService {
   async getAllTechnicians(options?: QueryOptions): Promise<Technician[]> {
-    let query = supabase.from('technicians').select('*');
+    const params: Record<string, string> = {};
+    if (options?.orderBy) params.orderBy = options.orderBy;
+    if (options?.orderDirection) params.orderDir = options.orderDirection;
 
-    if (options?.orderBy) {
-      query = query.order(options.orderBy, { ascending: options.orderDirection === 'asc' });
-    }
-
-    const { data, error } = await query;
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+    return apiClient.get<Technician[]>('technicians', params);
   }
 
   async getActiveTechnicians(): Promise<Technician[]> {
-    const { data, error } = await supabase
-      .from('technicians')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
+    return apiClient.get<Technician[]>('technicians', { activeOnly: 'true' });
+  }
 
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getTechnicianById(id: string): Promise<Technician> {
+    return apiClient.get<Technician>(`technicians/${id}`);
+  }
+
+  async createTechnician(data: Omit<Technician, 'id' | 'created_at' | 'updated_at'>): Promise<Technician> {
+    return apiClient.post<Technician>('technicians', data);
+  }
+
+  async updateTechnician(id: string, data: Partial<Technician>): Promise<Technician> {
+    return apiClient.put<Technician>(`technicians/${id}`, data);
+  }
+
+  async deleteTechnician(id: string): Promise<void> {
+    await apiClient.delete(`technicians/${id}`);
   }
 }
 
 class InventoryService {
   async getAllSpareParts(options?: QueryOptions): Promise<SparePart[]> {
-    let query = supabase.from('spare_parts').select('*');
+    const params: Record<string, string> = {};
+    if (options?.orderBy) params.orderBy = options.orderBy;
+    if (options?.orderDirection) params.orderDir = options.orderDirection;
 
-    if (options?.orderBy) {
-      query = query.order(options.orderBy, { ascending: options.orderDirection === 'asc' });
-    }
+    return apiClient.get<SparePart[]>('inventory', params);
+  }
 
-    const { data, error } = await query;
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getLowStockSpareParts(): Promise<SparePart[]> {
+    return apiClient.get<SparePart[]>('inventory', { lowStockOnly: 'true' });
+  }
+
+  async getSparePartById(id: string): Promise<SparePart> {
+    return apiClient.get<SparePart>(`inventory/${id}`);
   }
 
   async createSparePart(data: Omit<SparePart, 'id' | 'created_at' | 'updated_at'>): Promise<SparePart> {
-    const { data: result, error } = await supabase
-      .from('spare_parts')
-      .insert(data)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.post<SparePart>('inventory', data);
   }
 
   async updateSparePart(id: string, data: Partial<SparePart>): Promise<SparePart> {
-    const { data: result, error } = await supabase
-      .from('spare_parts')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.put<SparePart>(`inventory/${id}`, data);
   }
 
   async deleteSparePart(id: string): Promise<void> {
-    const { error } = await supabase.from('spare_parts').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`inventory/${id}`);
   }
 }
 
 class AuthService {
   async signIn(email: string, password: string): Promise<{ user: SupabaseUser; session: Session }> {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new ServiceError(error.message);
-    if (!data.user || !data.session) throw new ServiceError('No user or session returned');
+    if (error) throw new ApiError(error.message, 401);
+    if (!data.user || !data.session) throw new ApiError('No user or session returned', 401);
     return { user: data.user, session: data.session };
   }
 
   async signOut(): Promise<void> {
     const { error } = await supabase.auth.signOut();
-    if (error) throw new ServiceError(error.message);
+    if (error) throw new ApiError(error.message, 500);
   }
 
   async getSession(): Promise<Session | null> {
@@ -269,353 +216,194 @@ class AuthService {
   }
 
   async getUserProfile(userId: string): Promise<User | null> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error) throw new ServiceError(error.message);
-    return data;
+    try {
+      return await apiClient.get<User>(`users/${userId}/profile`);
+    } catch {
+      return null;
+    }
   }
 }
 
 class UsersService {
   async getUserPermissions(userId: string): Promise<UserPermission[]> {
-    const { data, error } = await supabase
-      .from('user_permissions')
-      .select('*')
-      .eq('user_id', userId);
-
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+    return apiClient.get<UserPermission[]>(`users/${userId}/permissions`);
   }
 
   async getAllUsers(): Promise<User[]> {
-    const { data, error } = await supabase
-      .from('users')
-      .select(`*, permissions:user_permissions(*)`)
-      .order('created_at', { ascending: false });
+    return apiClient.get<User[]>('users');
+  }
 
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getUserById(id: string): Promise<User> {
+    return apiClient.get<User>(`users/${id}`);
+  }
+
+  async createUser(data: { email: string; password: string; name: string; role?: string }): Promise<User> {
+    return apiClient.post<User>('users/create', data);
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
-    const { data: result, error } = await supabase
-      .from('users')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.put<User>(`users/${id}`, data);
   }
 
   async deleteUser(id: string): Promise<void> {
-    const { error } = await supabase.from('users').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`users/${id}`);
   }
 
   async updatePermissions(userId: string, permissions: Array<{ permission_key: string; can_view: boolean; can_edit: boolean }>): Promise<void> {
-    await supabase.from('user_permissions').delete().eq('user_id', userId);
-
-    const permissionsToInsert = permissions
-      .filter(p => p.can_view || p.can_edit)
-      .map(p => ({ user_id: userId, ...p }));
-
-    if (permissionsToInsert.length > 0) {
-      const { error } = await supabase.from('user_permissions').insert(permissionsToInsert);
-      if (error) throw new ServiceError(error.message);
-    }
+    await apiClient.put(`users/${userId}/permissions`, { permissions });
   }
 }
 
 class SalariesService {
   async getAllSalaries(options?: QueryOptions): Promise<Salary[]> {
-    let query = supabase.from('salaries').select(`*, technician:technicians(*)`);
+    const params: Record<string, string> = {};
+    if (options?.orderBy) params.orderBy = options.orderBy;
+    if (options?.orderDirection) params.orderDir = options.orderDirection;
 
-    if (options?.orderBy) {
-      query = query.order(options.orderBy, { ascending: options.orderDirection === 'asc' });
-    } else {
-      query = query.order('created_at', { ascending: false });
-    }
-
-    const { data, error } = await query;
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+    return apiClient.get<Salary[]>('salaries', params);
   }
 
   async getSalariesByTechnician(technicianId: string): Promise<Salary[]> {
-    const { data, error } = await supabase
-      .from('salaries')
-      .select(`*, technician:technicians(*)`)
-      .eq('technician_id', technicianId)
-      .order('year', { ascending: false })
-      .order('month', { ascending: false });
+    return apiClient.get<Salary[]>('salaries', { technicianId });
+  }
 
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getSalaryById(id: string): Promise<Salary> {
+    return apiClient.get<Salary>(`salaries/${id}`);
   }
 
   async createSalary(data: Omit<Salary, 'id' | 'created_at' | 'updated_at' | 'salary_number'>): Promise<Salary> {
-    const { data: salaryNumber } = await supabase.rpc('generate_salary_number');
-
-    const { data: result, error } = await supabase
-      .from('salaries')
-      .insert({ ...data, salary_number: salaryNumber })
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.post<Salary>('salaries', data);
   }
 
   async updateSalary(id: string, data: Partial<Salary>): Promise<Salary> {
-    const { data: result, error } = await supabase
-      .from('salaries')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.put<Salary>(`salaries/${id}`, data);
   }
 
   async deleteSalary(id: string): Promise<void> {
-    const { error } = await supabase.from('salaries').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`salaries/${id}`);
   }
 }
 
 class ExpensesService {
   async getAllExpenses(options?: QueryOptions): Promise<Expense[]> {
-    let query = supabase.from('expenses').select('*');
+    const params: Record<string, string> = {};
+    if (options?.orderBy) params.orderBy = options.orderBy;
+    if (options?.orderDirection) params.orderDir = options.orderDirection;
 
-    if (options?.orderBy) {
-      query = query.order(options.orderBy, { ascending: options.orderDirection === 'asc' });
-    } else {
-      query = query.order('expense_date', { ascending: false });
-    }
+    return apiClient.get<Expense[]>('expenses', params);
+  }
 
-    const { data, error } = await query;
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getExpenseById(id: string): Promise<Expense> {
+    return apiClient.get<Expense>(`expenses/${id}`);
   }
 
   async createExpense(data: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'expense_number'>): Promise<Expense> {
-    const { data: expenseNumber } = await supabase.rpc('generate_expense_number');
-
-    const { data: result, error } = await supabase
-      .from('expenses')
-      .insert({ ...data, expense_number: expenseNumber })
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.post<Expense>('expenses', data);
   }
 
   async updateExpense(id: string, data: Partial<Expense>): Promise<Expense> {
-    const { data: result, error } = await supabase
-      .from('expenses')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new ServiceError(error.message);
-    return result;
+    return apiClient.put<Expense>(`expenses/${id}`, data);
   }
 
   async deleteExpense(id: string): Promise<void> {
-    const { error } = await supabase.from('expenses').delete().eq('id', id);
-    if (error) throw new ServiceError(error.message);
+    await apiClient.delete(`expenses/${id}`);
   }
 
-  async getExpenseInstallments(expenseId: string): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('expense_installments')
-      .select('*')
-      .eq('expense_id', expenseId)
-      .order('installment_number');
-
-    if (error) throw new ServiceError(error.message);
-    return data || [];
+  async getExpenseInstallments(expenseId: string): Promise<unknown[]> {
+    return apiClient.get<unknown[]>(`expenses/${expenseId}/installments`);
   }
 
-  async updateInstallment(id: string, data: { is_paid: boolean; paid_date?: string }): Promise<void> {
-    const { error } = await supabase
-      .from('expense_installments')
-      .update(data)
-      .eq('id', id);
-    if (error) throw new ServiceError(error.message);
+  async updateInstallment(expenseId: string, installmentId: string, data: { is_paid: boolean; paid_date?: string }): Promise<void> {
+    await apiClient.put(`expenses/${expenseId}/installments/${installmentId}`, data);
   }
+}
+
+interface OverviewStats {
+  totalRevenue: number;
+  totalWorkOrders: number;
+  completedOrders: number;
+  pendingOrders: number;
+  inProgressOrders: number;
+  totalInvoices: number;
+  paidInvoices: number;
+  unpaidInvoices: number;
+  totalSparePartsSold: number;
+  sparePartsRevenue: number;
+  lowStockItems: number;
+}
+
+interface InventoryStats {
+  totalItems: number;
+  totalValue: number;
+  lowStockItems: Array<{ name: string; quantity: number; minimum_quantity: number }>;
+}
+
+interface TechnicianReport {
+  technician: Technician;
+  totalRevenue: number;
+  totalEarnings: number;
+  jobsCompleted: number;
+  averageJobValue: number;
+  jobs: Array<{
+    service_type: string;
+    description: string;
+    share_amount: number;
+    created_at: string;
+  }>;
 }
 
 class ReportsService {
-  async getOverviewStats(startDate?: string, endDate?: string) {
-    let workOrdersQuery = supabase.from('work_orders').select('*');
-    let invoicesQuery = supabase.from('invoices').select('*');
+  async getOverviewStats(startDate?: string, endDate?: string): Promise<OverviewStats> {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
 
-    if (startDate) {
-      workOrdersQuery = workOrdersQuery.gte('created_at', startDate);
-      invoicesQuery = invoicesQuery.gte('created_at', startDate);
-    }
-    if (endDate) {
-      workOrdersQuery = workOrdersQuery.lte('created_at', endDate);
-      invoicesQuery = invoicesQuery.lte('created_at', endDate);
-    }
-
-    const [workOrdersResult, invoicesResult, sparePartsResult, allSparePartsResult] = await Promise.all([
-      workOrdersQuery,
-      invoicesQuery,
-      supabase.from('work_order_spare_parts').select('quantity, unit_price'),
-      supabase.from('spare_parts').select('*'),
-    ]);
-
-    const workOrders = workOrdersResult.data || [];
-    const invoices = invoicesResult.data || [];
-    const sparePartsSold = sparePartsResult.data || [];
-    const allSpareParts = allSparePartsResult.data || [];
-
-    const completedOrders = workOrders.filter(wo => wo.status === 'completed').length;
-    const pendingOrders = workOrders.filter(wo => wo.status === 'pending').length;
-    const inProgressOrders = workOrders.filter(wo => wo.status === 'in_progress').length;
-
-    const paidInvoices = invoices.filter(inv => inv.payment_status === 'paid').length;
-    const unpaidInvoices = invoices.filter(inv => inv.payment_status === 'unpaid' || inv.payment_status === 'partial').length;
-
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
-    const sparePartsRevenue = sparePartsSold.reduce((sum, sp) => sum + (sp.quantity * sp.unit_price), 0);
-    const totalSparePartsSold = sparePartsSold.reduce((sum, sp) => sum + sp.quantity, 0);
-
-    const lowStockItems = allSpareParts.filter(sp => sp.quantity <= sp.minimum_quantity).length;
-
-    return {
-      totalRevenue,
-      totalWorkOrders: workOrders.length,
-      completedOrders,
-      pendingOrders,
-      inProgressOrders,
-      totalInvoices: invoices.length,
-      paidInvoices,
-      unpaidInvoices,
-      totalSparePartsSold,
-      sparePartsRevenue,
-      lowStockItems,
-    };
+    return apiClient.get<OverviewStats>('reports/overview', params);
   }
 
-  async getInventoryStats() {
-    const { data: spareParts, error } = await supabase.from('spare_parts').select('*');
-    if (error) throw new ServiceError(error.message);
-
-    const totalValue = (spareParts || []).reduce((sum, sp) => sum + (sp.quantity * Number(sp.unit_price)), 0);
-    const lowStockItems = (spareParts || []).filter(sp => sp.quantity <= sp.minimum_quantity);
-
-    return {
-      totalItems: (spareParts || []).length,
-      totalValue,
-      lowStockItems: lowStockItems.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        minimum_quantity: item.minimum_quantity,
-      })),
-    };
+  async getInventoryStats(): Promise<InventoryStats> {
+    return apiClient.get<InventoryStats>('reports/inventory');
   }
 
-  async getTechnicianReports(startDate?: string, endDate?: string) {
-    const { data: technicians, error: techError } = await supabase
-      .from('technicians')
-      .select('*')
-      .eq('is_active', true);
+  async getTechnicianReports(startDate?: string, endDate?: string): Promise<TechnicianReport[]> {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
 
-    if (techError) throw new ServiceError(techError.message);
-
-    const reports = [];
-
-    for (const technician of technicians || []) {
-      let query = supabase
-        .from('technician_assignments')
-        .select(`
-          *,
-          service:work_order_services!inner(
-            *,
-            work_order:work_orders!inner(status, created_at)
-          )
-        `)
-        .eq('technician_id', technician.id)
-        .eq('service.work_order.status', 'completed');
-
-      if (startDate) {
-        query = query.gte('service.work_order.created_at', startDate);
-      }
-      if (endDate) {
-        query = query.lte('service.work_order.created_at', endDate);
-      }
-
-      const { data: assignments } = await query;
-
-      const totalRevenue = (assignments || []).reduce((sum, a) => sum + (a.share_amount || 0), 0);
-      const jobsCompleted = (assignments || []).length;
-      const averageJobValue = jobsCompleted > 0 ? totalRevenue / jobsCompleted : 0;
-
-      let totalEarnings = 0;
-      if (technician.contract_type === 'percentage') {
-        totalEarnings = (totalRevenue * technician.percentage) / 100;
-      } else {
-        totalEarnings = technician.fixed_salary;
-      }
-
-      reports.push({
-        technician,
-        totalRevenue,
-        totalEarnings,
-        jobsCompleted,
-        averageJobValue,
-        jobs: (assignments || []).map((a: any) => ({
-          service_type: a.service?.service_type || '',
-          description: a.service?.description || '',
-          share_amount: a.share_amount,
-          created_at: a.service?.work_order?.created_at || '',
-        })),
-      });
-    }
-
-    return reports.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    return apiClient.get<TechnicianReport[]>('reports/technicians', params);
   }
 }
 
+interface WorkshopSettings {
+  id: string;
+  workshop_name: string;
+  phone?: string;
+  address?: string;
+  email?: string;
+  logo_url?: string;
+  tax_number?: string;
+  tax_rate?: number;
+  tax_type?: string;
+  currency?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 class SettingsService {
-  async getWorkshopSettings() {
-    const { data, error } = await supabase
-      .from('workshop_settings')
-      .select('*')
-      .maybeSingle();
-
-    if (error) throw new ServiceError(error.message);
-    return data;
+  async getWorkshopSettings(): Promise<WorkshopSettings | null> {
+    try {
+      return await apiClient.get<WorkshopSettings>('settings');
+    } catch {
+      return null;
+    }
   }
 
-  async updateWorkshopSettings(id: string, data: any) {
-    const { data: result, error } = await supabase
-      .from('workshop_settings')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new ServiceError(error.message);
-    return result;
+  async updateWorkshopSettings(id: string, data: Partial<WorkshopSettings>): Promise<WorkshopSettings> {
+    return apiClient.put<WorkshopSettings>(`settings/${id}`, data);
   }
 
-  async createWorkshopSettings(data: any) {
-    const { data: result, error } = await supabase
-      .from('workshop_settings')
-      .insert(data)
-      .select()
-      .single();
-
-    if (error) throw new ServiceError(error.message);
-    return result;
+  async createWorkshopSettings(data: Partial<WorkshopSettings>): Promise<WorkshopSettings> {
+    return apiClient.post<WorkshopSettings>('settings', data);
   }
 }
 
