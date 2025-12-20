@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function isCustomerServiceOrAdmin(): boolean {
-    return user?.role === 'admin' || user?.role === 'customer_service';
+    return user?.role === 'admin' || user?.role === 'customer_service' || user?.role === 'receptionist';
   }
 
   const value = {
