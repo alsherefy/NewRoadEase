@@ -1,8 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "./_shared/utils/supabase.ts";
-import { authenticateRequest } from "./_shared/middleware/auth.ts";
-import { successResponse, errorResponse, corsResponse } from "./_shared/utils/response.ts";
-import { ApiError } from "./_shared/types.ts";
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { allRoles, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateUUID, validateRequestBody } from "../_shared/utils/validation.ts";
+import { RESOURCES } from "../_shared/constants/resources.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -21,7 +24,11 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
+        allRoles(auth);
+
         if (technicianId) {
+          validateUUID(technicianId, "Technician ID");
+
           const { data, error } = await supabase
             .from("technicians")
             .select("*")
@@ -50,7 +57,9 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        const body = await req.json();
+        adminOnly(auth);
+
+        const body = await validateRequestBody(req, ["name", "specialization"]);
         const { data, error } = await supabase
           .from("technicians")
           .insert({
@@ -65,7 +74,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        if (!technicianId) throw new ApiError("Technician ID required", "INVALID_REQUEST", 400);
+        adminOnly(auth);
+        validateUUID(technicianId, "Technician ID");
+
+        await checkOwnership(auth, RESOURCES.TECHNICIANS, technicianId!);
 
         const body = await req.json();
         const { data, error } = await supabase
@@ -81,7 +93,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        if (!technicianId) throw new ApiError("Technician ID required", "INVALID_REQUEST", 400);
+        adminOnly(auth);
+        validateUUID(technicianId, "Technician ID");
+
+        await checkOwnership(auth, RESOURCES.TECHNICIANS, technicianId!);
 
         const { error } = await supabase
           .from("technicians")
@@ -90,13 +105,14 @@ Deno.serve(async (req: Request) => {
           .eq("organization_id", auth.organizationId);
 
         if (error) throw new ApiError(error.message, "DB_ERROR", 500);
-        return successResponse({ success: true });
+        return successResponse({ deleted: true });
       }
 
       default:
         throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    return errorResponse(err);
+    console.error("Error in technicians endpoint:", err);
+    return errorResponse(err as Error);
   }
 });

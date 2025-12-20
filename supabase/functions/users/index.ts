@@ -1,8 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getAuthenticatedClient } from "./_shared/utils/supabase.ts";
-import { successResponse, errorResponse, corsResponse } from "./_shared/utils/response.ts";
-import { ApiError } from "./_shared/types.ts";
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { adminOnly } from "../_shared/middleware/authorize.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateUUID, validateEmail } from "../_shared/utils/validation.ts";
+import { RESOURCES } from "../_shared/constants/resources.ts";
+import { ApiError } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { JWTPayload, ForbiddenError } from "../types.ts";
+import { JWTPayload, ForbiddenError, NotFoundError } from "../types.ts";
 import { Role, ROLES, PermissionKey, PermissionAction } from "../constants/roles.ts";
+import { ResourceKey } from "../constants/resources.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -50,5 +51,37 @@ export function authorizePermission(
 export function authorizeDelete(user: JWTPayload): void {
   if (user.role !== ROLES.ADMIN) {
     throw new ForbiddenError("Access denied. Only administrators can delete resources.");
+  }
+}
+
+export async function checkOwnership(
+  user: JWTPayload,
+  tableName: ResourceKey,
+  recordId: string
+): Promise<void> {
+  if (user.role === ROLES.ADMIN) {
+    return;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  const { data, error } = await supabase
+    .from(tableName)
+    .select("organization_id")
+    .eq("id", recordId)
+    .maybeSingle();
+
+  if (error) {
+    throw new ForbiddenError(`Error verifying ownership: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new NotFoundError(`Resource not found in ${tableName}`);
+  }
+
+  if (data.organization_id !== user.organizationId) {
+    throw new ForbiddenError(
+      "Access denied. You can only modify resources belonging to your organization."
+    );
   }
 }

@@ -1,124 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-function getSupabaseClient() {
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function getAuthenticatedClient(req: Request) {
-  const authHeader = req.headers.get("Authorization");
-  if (authHeader) {
-    const token = authHeader.replace("Bearer ", "");
-    return createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-interface JWTPayload {
-  userId: string;
-  role: 'admin' | 'staff' | 'user';
-  organizationId: string;
-  email: string;
-  fullName: string;
-}
-
-class ApiError extends Error {
-  constructor(
-    message: string,
-    public code: string = "ERROR",
-    public status: number = 400,
-    public details?: any
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-class UnauthorizedError extends ApiError {
-  constructor(message: string = "Unauthorized") {
-    super(message, "UNAUTHORIZED", 401);
-    this.name = "UnauthorizedError";
-  }
-}
-
-async function authenticateRequest(req: Request): Promise<JWTPayload> {
-  const authHeader = req.headers.get("Authorization");
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new UnauthorizedError("Missing or invalid authorization header");
-  }
-
-  const token = authHeader.replace("Bearer ", "");
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-
-  if (error || !user) {
-    throw new UnauthorizedError("Invalid or expired token");
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("role, organization_id, full_name, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile) {
-    throw new UnauthorizedError("User profile not found");
-  }
-
-  if (!profile.is_active) {
-    throw new UnauthorizedError("User account is inactive");
-  }
-
-  if (!profile.organization_id) {
-    throw new UnauthorizedError("User is not assigned to an organization");
-  }
-
-  return {
-    userId: user.id,
-    role: profile.role as 'admin' | 'staff' | 'user',
-    organizationId: profile.organization_id,
-    email: user.email || '',
-    fullName: profile.full_name,
-  };
-}
-
-function successResponse<T>(data: T, status = 200): Response {
-  return new Response(JSON.stringify({ success: true, data, error: null }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(error: ApiError | Error, status?: number): Response {
-  let body;
-  if (error instanceof ApiError) {
-    body = { success: false, data: null, error: { code: error.code, message: error.message, details: error.details } };
-    status = error.status;
-  } else {
-    body = { success: false, data: null, error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } };
-    status = status || 500;
-  }
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function corsResponse(): Response {
-  return new Response(null, { status: 200, headers: corsHeaders });
-}
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateUUID, validatePagination, validateRequestBody } from "../_shared/utils/validation.ts";
+import { RESOURCES } from "../_shared/constants/resources.ts";
+import { createClient } from "../_shared/utils/supabase.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -126,15 +13,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const auth = await authenticateRequest(req);
-    const supabase = getAuthenticatedClient(req);
+    const user = await authenticateRequest(req);
+    const supabase = createClient();
+
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const workOrderId = pathParts[pathParts.length - 1] !== 'work-orders' ? pathParts[pathParts.length - 1] : undefined;
 
     switch (req.method) {
       case "GET": {
+        allRoles(user);
+
         if (workOrderId) {
+          validateUUID(workOrderId, "Work Order ID");
+
           const { data, error } = await supabase
             .from("work_orders")
             .select(`
@@ -154,7 +46,7 @@ Deno.serve(async (req: Request) => {
               )
             `)
             .eq("id", workOrderId)
-            .eq("organization_id", auth.organizationId)
+            .eq("organization_id", user.organizationId)
             .maybeSingle();
 
           if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
@@ -162,8 +54,11 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const limit = parseInt(url.searchParams.get("limit") || "50");
-        const offset = parseInt(url.searchParams.get("offset") || "0");
+        const pagination = validatePagination({
+          limit: url.searchParams.get("limit"),
+          offset: url.searchParams.get("offset"),
+        });
+
         const orderBy = url.searchParams.get("orderBy") || "created_at";
         const orderDir = url.searchParams.get("orderDir") || "desc";
         const status = url.searchParams.get("status");
@@ -183,7 +78,7 @@ Deno.serve(async (req: Request) => {
             customer:customers!inner(id, name, phone),
             vehicle:vehicles!inner(id, car_make, car_model, plate_number)
           `, { count: "exact" })
-          .eq("organization_id", auth.organizationId);
+          .eq("organization_id", user.organizationId);
 
         if (status) {
           query = query.eq("status", status);
@@ -191,19 +86,21 @@ Deno.serve(async (req: Request) => {
 
         const { data, error, count } = await query
           .order(orderBy, { ascending: orderDir === "asc" })
-          .range(offset, offset + limit - 1);
+          .range(pagination.offset, pagination.offset + pagination.limit - 1);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
         return successResponse({
           data: data || [],
           count: count || 0,
-          hasMore: offset + limit < (count || 0),
+          hasMore: pagination.offset + pagination.limit < (count || 0),
         });
       }
 
       case "POST": {
-        const body = await req.json();
+        adminAndCustomerService(user);
+
+        const body = await validateRequestBody(req, ["customer_id", "vehicle_id", "description"]);
         const { services, spare_parts, ...workOrderData } = body;
 
         const { data: orderNumber } = await supabase.rpc("generate_work_order_number");
@@ -213,7 +110,7 @@ Deno.serve(async (req: Request) => {
           .insert({
             ...workOrderData,
             order_number: orderNumber,
-            organization_id: auth.organizationId,
+            organization_id: user.organizationId,
           })
           .select()
           .single();
@@ -274,14 +171,17 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        if (!workOrderId) throw new ApiError("Work order ID required", "VALIDATION_ERROR", 400);
+        adminAndCustomerService(user);
+        validateUUID(workOrderId, "Work Order ID");
+
+        await checkOwnership(user, RESOURCES.WORK_ORDERS, workOrderId!);
 
         const body = await req.json();
         const { data, error } = await supabase
           .from("work_orders")
           .update({ ...body, updated_at: new Date().toISOString() })
           .eq("id", workOrderId)
-          .eq("organization_id", auth.organizationId)
+          .eq("organization_id", user.organizationId)
           .select()
           .single();
 
@@ -290,7 +190,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        if (!workOrderId) throw new ApiError("Work order ID required", "VALIDATION_ERROR", 400);
+        adminOnly(user);
+        validateUUID(workOrderId, "Work Order ID");
+
+        await checkOwnership(user, RESOURCES.WORK_ORDERS, workOrderId!);
 
         const { data: services } = await supabase
           .from("work_order_services")
@@ -312,17 +215,17 @@ Deno.serve(async (req: Request) => {
           .from("work_orders")
           .delete()
           .eq("id", workOrderId)
-          .eq("organization_id", auth.organizationId);
+          .eq("organization_id", user.organizationId);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
-        return successResponse({ success: true });
+        return successResponse({ deleted: true });
       }
 
       default:
-        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
+        return errorResponse(new Error("Method not allowed"), 405);
     }
-  } catch (err) {
-    console.error("Error in work-orders endpoint:", err);
-    return errorResponse(err as Error);
+  } catch (error) {
+    console.error("Error in work-orders endpoint:", error);
+    return errorResponse(error as Error);
   }
 });

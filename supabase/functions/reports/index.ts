@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { allRoles } from "../_shared/middleware/authorize.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -11,6 +12,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const auth = await authenticateRequest(req);
+    allRoles(auth);
+
     const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);

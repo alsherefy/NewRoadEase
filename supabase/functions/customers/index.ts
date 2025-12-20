@@ -1,8 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { authorize, allRoles, adminAndStaff, adminOnly } from "../_shared/middleware/authorize.ts";
+import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { validateCustomer, validateId, validatePagination } from "../_shared/utils/validation.ts";
+import { validateCustomer, validateId, validatePagination, validateUUID } from "../_shared/utils/validation.ts";
+import { RESOURCES } from "../_shared/constants/resources.ts";
 import { CustomersService } from "./services/customers.service.ts";
 
 Deno.serve(async (req: Request) => {
@@ -26,7 +27,7 @@ Deno.serve(async (req: Request) => {
         allRoles(user);
 
         if (customerId) {
-          validateId(customerId, "Customer");
+          validateUUID(customerId, "Customer ID");
           const customer = await customersService.getById(customerId);
           return successResponse(customer);
         }
@@ -47,7 +48,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        adminAndStaff(user);
+        adminAndCustomerService(user);
 
         const createData = await req.json();
         validateCustomer(createData);
@@ -57,9 +58,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        adminAndStaff(user);
+        adminAndCustomerService(user);
+        validateUUID(customerId, "Customer ID");
 
-        validateId(customerId, "Customer");
+        await checkOwnership(user, RESOURCES.CUSTOMERS, customerId!);
 
         const updateData = await req.json();
         validateCustomer(updateData);
@@ -70,8 +72,9 @@ Deno.serve(async (req: Request) => {
 
       case "DELETE": {
         adminOnly(user);
+        validateUUID(customerId, "Customer ID");
 
-        validateId(customerId, "Customer");
+        await checkOwnership(user, RESOURCES.CUSTOMERS, customerId!);
 
         await customersService.delete(customerId!);
         return successResponse({ deleted: true });

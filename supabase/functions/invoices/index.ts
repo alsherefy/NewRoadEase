@@ -1,7 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateUUID, validatePagination, validateRequestBody } from "../_shared/utils/validation.ts";
+import { RESOURCES } from "../_shared/constants/resources.ts";
 import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
@@ -20,7 +23,11 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
+        allRoles(auth);
+
         if (invoiceId) {
+          validateUUID(invoiceId, "Invoice ID");
+
           const { data, error } = await supabase
             .from("invoices")
             .select(`
@@ -49,8 +56,12 @@ Deno.serve(async (req: Request) => {
           return successResponse(result);
         }
 
-        const limit = parseInt(url.searchParams.get("limit") || "50");
-        const offset = parseInt(url.searchParams.get("offset") || "0");
+        const pagination = validatePagination({
+          limit: url.searchParams.get("limit"),
+          offset: url.searchParams.get("offset"),
+        });
+        const limit = pagination.limit;
+        const offset = pagination.offset;
         const orderBy = url.searchParams.get("orderBy") || "created_at";
         const orderDir = url.searchParams.get("orderDir") || "desc";
         const paymentStatus = url.searchParams.get("paymentStatus");
@@ -105,7 +116,9 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        const body = await req.json();
+        adminAndCustomerService(auth);
+
+        const body = await validateRequestBody(req, ["work_order_id", "subtotal", "total"]);
         const { items, ...invoiceData } = body;
 
         const { data: invoiceNumber } = await supabase.rpc("generate_invoice_number");
@@ -139,7 +152,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        if (!invoiceId) throw new ApiError("Invoice ID required", "INVALID_REQUEST", 400);
+        adminAndCustomerService(auth);
+        validateUUID(invoiceId, "Invoice ID");
+
+        await checkOwnership(auth, RESOURCES.INVOICES, invoiceId!);
 
         const body = await req.json();
         const { items, ...invoiceData } = body;
@@ -175,7 +191,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        if (!invoiceId) throw new ApiError("Invoice ID required", "INVALID_REQUEST", 400);
+        adminOnly(auth);
+        validateUUID(invoiceId, "Invoice ID");
+
+        await checkOwnership(auth, RESOURCES.INVOICES, invoiceId!);
 
         await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
 
@@ -186,7 +205,7 @@ Deno.serve(async (req: Request) => {
           .eq("organization_id", auth.organizationId);
 
         if (error) throw new ApiError(error.message, "DB_ERROR", 500);
-        return successResponse({ success: true });
+        return successResponse({ deleted: true });
       }
 
       default:

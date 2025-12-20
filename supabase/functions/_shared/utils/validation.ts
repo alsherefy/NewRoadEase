@@ -75,3 +75,102 @@ export function validatePagination(params: any): { limit: number; offset: number
 
   return { limit, offset };
 }
+
+export function validateUUID(id: string | undefined, fieldName: string = "ID"): string {
+  if (!id || id.trim() === "") {
+    throw new ValidationError(`${fieldName} is required`, [`${fieldName} cannot be empty`]);
+  }
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    throw new ValidationError(`Invalid ${fieldName}`, [`${fieldName} must be a valid UUID`]);
+  }
+
+  return id;
+}
+
+export function validateRequired(
+  value: any,
+  fieldName: string,
+  type: "string" | "number" | "boolean" | "array" | "object" = "string"
+): void {
+  if (value === null || value === undefined) {
+    throw new ValidationError(`${fieldName} is required`, [`${fieldName} is required`]);
+  }
+
+  if (type === "string" && (typeof value !== "string" || value.trim() === "")) {
+    throw new ValidationError(`${fieldName} is required`, [`${fieldName} must be a non-empty string`]);
+  }
+
+  if (type === "number" && (typeof value !== "number" || isNaN(value))) {
+    throw new ValidationError(`${fieldName} is invalid`, [`${fieldName} must be a valid number`]);
+  }
+
+  if (type === "boolean" && typeof value !== "boolean") {
+    throw new ValidationError(`${fieldName} is invalid`, [`${fieldName} must be a boolean`]);
+  }
+
+  if (type === "array" && !Array.isArray(value)) {
+    throw new ValidationError(`${fieldName} is invalid`, [`${fieldName} must be an array`]);
+  }
+
+  if (type === "object" && (typeof value !== "object" || Array.isArray(value))) {
+    throw new ValidationError(`${fieldName} is invalid`, [`${fieldName} must be an object`]);
+  }
+}
+
+export function validateEmail(email: string | undefined, fieldName: string = "Email"): void {
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ValidationError(`Invalid ${fieldName}`, [`${fieldName} format is invalid`]);
+  }
+}
+
+export function validateEnum<T extends string>(
+  value: T | undefined,
+  allowedValues: readonly T[],
+  fieldName: string
+): void {
+  if (value && !allowedValues.includes(value)) {
+    throw new ValidationError(`Invalid ${fieldName}`, [
+      `${fieldName} must be one of: ${allowedValues.join(", ")}`,
+    ]);
+  }
+}
+
+export function validateMinMax(
+  value: number | undefined,
+  fieldName: string,
+  min?: number,
+  max?: number
+): void {
+  if (value === undefined || value === null) return;
+
+  if (min !== undefined && value < min) {
+    throw new ValidationError(`${fieldName} is too small`, [
+      `${fieldName} must be at least ${min}`,
+    ]);
+  }
+
+  if (max !== undefined && value > max) {
+    throw new ValidationError(`${fieldName} is too large`, [
+      `${fieldName} must be at most ${max}`,
+    ]);
+  }
+}
+
+export function validateRequestBody<T>(req: Request, requiredFields?: string[]): Promise<T> {
+  return req.json().then((body: any) => {
+    if (requiredFields) {
+      const errors: string[] = [];
+      for (const field of requiredFields) {
+        if (!body[field]) {
+          errors.push(`${field} is required`);
+        }
+      }
+      if (errors.length > 0) {
+        throw new ValidationError("Validation failed", errors);
+      }
+    }
+    return body as T;
+  });
+}

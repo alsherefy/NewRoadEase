@@ -1,8 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "./_shared/utils/supabase.ts";
-import { authenticateRequest } from "./_shared/middleware/auth.ts";
-import { successResponse, errorResponse, corsResponse } from "./_shared/utils/response.ts";
-import { ApiError } from "./_shared/types.ts";
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
+import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { allRoles, adminOnly } from "../_shared/middleware/authorize.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateUUID } from "../_shared/utils/validation.ts";
+import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -20,6 +22,8 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
+        allRoles(auth);
+
         const { data, error } = await supabase
           .from("workshop_settings")
           .select("*")
@@ -31,6 +35,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
+        adminOnly(auth);
+
         const body = await req.json();
         const { data, error } = await supabase
           .from("workshop_settings")
@@ -46,7 +52,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        if (!settingsId) throw new ApiError("Settings ID required", "VALIDATION_ERROR", 400);
+        adminOnly(auth);
+        validateUUID(settingsId, "Settings ID");
 
         const body = await req.json();
         const { data, error } = await supabase

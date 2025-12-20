@@ -1,7 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateRequest } from "../_shared/middleware/auth.ts";
+import { adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { validateUUID, validateRequestBody } from "../_shared/utils/validation.ts";
+import { RESOURCES } from "../_shared/constants/resources.ts";
 import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
@@ -21,7 +24,11 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
+        adminOnly(auth);
+
         if (salaryId) {
+          validateUUID(salaryId, "Salary ID");
+
           const { data, error } = await supabase
             .from("salaries")
             .select(`*, technician:technicians(*)`)
@@ -50,7 +57,9 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        const body = await req.json();
+        adminOnly(auth);
+
+        const body = await validateRequestBody(req, ["technician_id", "month", "year", "amount"]);
         const { data: salaryNumber } = await supabase.rpc("generate_salary_number");
 
         const { data, error } = await supabase
@@ -68,7 +77,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        if (!salaryId) throw new ApiError("Salary ID required", "VALIDATION_ERROR", 400);
+        adminOnly(auth);
+        validateUUID(salaryId, "Salary ID");
+
+        await checkOwnership(auth, RESOURCES.SALARIES, salaryId!);
 
         const body = await req.json();
         const { data, error } = await supabase
@@ -84,7 +96,10 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        if (!salaryId) throw new ApiError("Salary ID required", "VALIDATION_ERROR", 400);
+        adminOnly(auth);
+        validateUUID(salaryId, "Salary ID");
+
+        await checkOwnership(auth, RESOURCES.SALARIES, salaryId!);
 
         const { error } = await supabase
           .from("salaries")
@@ -93,7 +108,7 @@ Deno.serve(async (req: Request) => {
           .eq("organization_id", auth.organizationId);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
-        return successResponse({ success: true });
+        return successResponse({ deleted: true });
       }
 
       default:
