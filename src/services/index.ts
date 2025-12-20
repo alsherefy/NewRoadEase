@@ -407,6 +407,19 @@ class SettingsService {
   }
 }
 
+interface DashboardStats {
+  totalRevenue: number;
+  completedOrders: number;
+  activeCustomers: number;
+  activeTechnicians: number;
+}
+
+class DashboardService {
+  async getStats(): Promise<DashboardStats> {
+    return apiClient.get<DashboardStats>('dashboard');
+  }
+}
+
 export const workOrdersService = new WorkOrdersService();
 export const invoicesService = new InvoicesService();
 export const customersService = new CustomersService();
@@ -419,3 +432,4 @@ export const salariesService = new SalariesService();
 export const expensesService = new ExpensesService();
 export const reportsService = new ReportsService();
 export const settingsService = new SettingsService();
+export const dashboardService = new DashboardService();

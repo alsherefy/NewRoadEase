@@ -34,9 +34,9 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
     loadOrders();
   }, []);
 
-  async function loadOrders(resetPage = false) {
+  async function loadOrders(resetPage = false, pageToLoad?: number) {
     try {
-      const currentPage = resetPage ? 0 : page;
+      const currentPage = resetPage ? 0 : (pageToLoad ?? page);
       const result = await workOrdersService.getPaginatedWorkOrders({
         limit: PAGE_SIZE,
         offset: currentPage * PAGE_SIZE,
@@ -60,8 +60,9 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
   }
 
   async function loadMore() {
-    setPage(prev => prev + 1);
-    await loadOrders();
+    const nextPage = page + 1;
+    setPage(nextPage);
+    await loadOrders(false, nextPage);
   }
 
   const handleDeleteClick = (id: string, orderNumber: string) => {

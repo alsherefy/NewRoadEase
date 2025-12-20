@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { DollarSign, ClipboardList, Users, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../utils/numberUtils';
+import { dashboardService } from '../services';
 
 interface Stats {
   totalRevenue: number;
@@ -27,28 +27,8 @@ export function Dashboard() {
 
   async function loadStats() {
     try {
-      const [revenueResult, completedCountResult, customersResult, techniciansResult] = await Promise.all([
-        supabase.from('work_orders')
-          .select('total_labor_cost')
-          .eq('status', 'completed'),
-        supabase.from('work_orders')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'completed'),
-        supabase.from('customers')
-          .select('id', { count: 'exact', head: true }),
-        supabase.from('technicians')
-          .select('id', { count: 'exact', head: true })
-          .eq('is_active', true),
-      ]);
-
-      const totalRevenue = revenueResult.data?.reduce((sum, order) => sum + (order.total_labor_cost || 0), 0) || 0;
-
-      setStats({
-        totalRevenue,
-        completedOrders: completedCountResult.count || 0,
-        activeCustomers: customersResult.count || 0,
-        activeTechnicians: techniciansResult.count || 0,
-      });
+      const data = await dashboardService.getStats();
+      setStats(data);
     } catch (error) {
       console.error('Error loading stats:', error);
     } finally {
