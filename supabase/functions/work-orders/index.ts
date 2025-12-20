@@ -1,8 +1,113 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getSupabaseClient } from "../_shared/utils/supabase.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { ApiError } from "../_shared/types.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+function getSupabaseClient() {
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+interface JWTPayload {
+  userId: string;
+  role: 'admin' | 'staff' | 'user';
+  organizationId: string;
+  email: string;
+  fullName: string;
+}
+
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string = "ERROR",
+    public status: number = 400,
+    public details?: any
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+class UnauthorizedError extends ApiError {
+  constructor(message: string = "Unauthorized") {
+    super(message, "UNAUTHORIZED", 401);
+    this.name = "UnauthorizedError";
+  }
+}
+
+async function authenticateRequest(req: Request): Promise<JWTPayload> {
+  const authHeader = req.headers.get("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new UnauthorizedError("Missing or invalid authorization header");
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    throw new UnauthorizedError("Invalid or expired token");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("role, organization_id, full_name, is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    throw new UnauthorizedError("User profile not found");
+  }
+
+  if (!profile.is_active) {
+    throw new UnauthorizedError("User account is inactive");
+  }
+
+  if (!profile.organization_id) {
+    throw new UnauthorizedError("User is not assigned to an organization");
+  }
+
+  return {
+    userId: user.id,
+    role: profile.role as 'admin' | 'staff' | 'user',
+    organizationId: profile.organization_id,
+    email: user.email || '',
+    fullName: profile.full_name,
+  };
+}
+
+function successResponse<T>(data: T, status = 200): Response {
+  return new Response(JSON.stringify({ success: true, data, error: null }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function errorResponse(error: ApiError | Error, status?: number): Response {
+  let body;
+  if (error instanceof ApiError) {
+    body = { success: false, data: null, error: { code: error.code, message: error.message, details: error.details } };
+    status = error.status;
+  } else {
+    body = { success: false, data: null, error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } };
+    status = status || 500;
+  }
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function corsResponse(): Response {
+  return new Response(null, { status: 200, headers: corsHeaders });
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -176,10 +281,19 @@ Deno.serve(async (req: Request) => {
       case "DELETE": {
         if (!workOrderId) throw new ApiError("Work order ID required", "VALIDATION_ERROR", 400);
 
-        await supabase.from("technician_assignments").delete().in(
-          "service_id",
-          supabase.from("work_order_services").select("id").eq("work_order_id", workOrderId)
-        );
+        const { data: services } = await supabase
+          .from("work_order_services")
+          .select("id")
+          .eq("work_order_id", workOrderId);
+
+        if (services && services.length > 0) {
+          const serviceIds = services.map(s => s.id);
+          await supabase
+            .from("technician_assignments")
+            .delete()
+            .in("service_id", serviceIds);
+        }
+
         await supabase.from("work_order_services").delete().eq("work_order_id", workOrderId);
         await supabase.from("work_order_spare_parts").delete().eq("work_order_id", workOrderId);
 
