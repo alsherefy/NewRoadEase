@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { WorkOrder } from '../types';
 import { Plus, Eye, Calendar, Car, User, DollarSign, Edit, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useTranslation } from 'react-i18next';
 import { displayNumber } from '../utils/numberUtils';
+import { workOrdersService } from '../services';
 
 interface WorkOrdersProps {
   onNewOrder: () => void;
@@ -37,26 +37,21 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
   async function loadOrders(resetPage = false) {
     try {
       const currentPage = resetPage ? 0 : page;
-      const { data, error, count } = await supabase
-        .from('work_orders')
-        .select(`
-          *,
-          customer:customers(id, name, phone),
-          vehicle:vehicles(id, car_make, car_model, plate_number)
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
-
-      if (error) throw error;
+      const result = await workOrdersService.getPaginatedWorkOrders({
+        limit: PAGE_SIZE,
+        offset: currentPage * PAGE_SIZE,
+        orderBy: 'created_at',
+        orderDirection: 'desc'
+      });
 
       if (resetPage) {
-        setOrders(data || []);
+        setOrders(result.data);
         setPage(0);
       } else {
-        setOrders(prev => currentPage === 0 ? (data || []) : [...prev, ...(data || [])]);
+        setOrders(prev => currentPage === 0 ? result.data : [...prev, ...result.data]);
       }
 
-      setHasMore((data?.length || 0) === PAGE_SIZE && ((currentPage + 1) * PAGE_SIZE) < (count || 0));
+      setHasMore(result.hasMore);
     } catch (error) {
       console.error('Error loading work orders:', error);
     } finally {
@@ -84,13 +79,7 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
 
   const handleDeleteConfirm = async () => {
     try {
-      const { error } = await supabase
-        .from('work_orders')
-        .delete()
-        .eq('id', deleteConfirm.orderId);
-
-      if (error) throw error;
-
+      await workOrdersService.deleteWorkOrder(deleteConfirm.orderId);
       toast.success(t('work_orders.success_deleted'));
       await loadOrders(true);
     } catch (error) {

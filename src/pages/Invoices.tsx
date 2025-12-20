@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, Plus, Eye, Search, CheckCircle, XCircle, Clock, CreditCard, Banknote, Calendar, DollarSign, TrendingUp, Edit, Trash2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatToFixed } from '../utils/numberUtils';
+import { invoicesService, customersService } from '../services';
 
 interface Invoice {
   id: string;
@@ -62,34 +62,31 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
   const fetchInvoices = async (resetPage = false) => {
     try {
       const currentPage = resetPage ? 0 : page;
-      const { data: invoiceData, error: invoiceError, count } = await supabase
-        .from('invoices')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
-
-      if (invoiceError) throw invoiceError;
+      const result = await invoicesService.getPaginatedInvoices({
+        limit: PAGE_SIZE,
+        offset: currentPage * PAGE_SIZE,
+        orderBy: 'created_at',
+        orderDirection: 'desc'
+      });
 
       if (resetPage) {
-        setInvoices(invoiceData || []);
+        setInvoices(result.data);
         setPage(0);
       } else {
-        setInvoices(prev => currentPage === 0 ? (invoiceData || []) : [...prev, ...(invoiceData || [])]);
+        setInvoices(prev => currentPage === 0 ? result.data : [...prev, ...result.data]);
       }
 
-      setHasMore((invoiceData?.length || 0) === PAGE_SIZE && ((currentPage + 1) * PAGE_SIZE) < (count || 0));
+      setHasMore(result.hasMore);
 
-      const customerIds = [...new Set(invoiceData?.map(inv => inv.customer_id))];
+      const customerIds = [...new Set(result.data.map(inv => inv.customer_id))];
       if (customerIds.length > 0) {
-        const { data: customerData } = await supabase
-          .from('customers')
-          .select('id, name')
-          .in('id', customerIds);
-
+        const allCustomers = await customersService.getAllCustomers();
         const customerMap: Record<string, Customer> = { ...customers };
-        customerData?.forEach(customer => {
-          customerMap[customer.id] = { name: customer.name };
-        });
+        allCustomers
+          .filter(c => customerIds.includes(c.id))
+          .forEach(customer => {
+            customerMap[customer.id] = { name: customer.name };
+          });
         setCustomers(customerMap);
       }
     } catch (error) {
@@ -119,20 +116,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
 
   const handleDeleteConfirm = async () => {
     try {
-      const { error: itemsError } = await supabase
-        .from('invoice_items')
-        .delete()
-        .eq('invoice_id', deleteConfirm.invoiceId);
-
-      if (itemsError) throw itemsError;
-
-      const { error: invoiceError } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', deleteConfirm.invoiceId);
-
-      if (invoiceError) throw invoiceError;
-
+      await invoicesService.deleteInvoice(deleteConfirm.invoiceId);
       toast.success(t('invoices.success_deleted'));
       await fetchInvoices(true);
     } catch (error) {

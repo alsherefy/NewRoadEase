@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { Technician } from '../types';
 import { Users, DollarSign, Trophy, BarChart3 } from 'lucide-react';
 import { TechniciansList } from '../components/TechniciansList';
@@ -7,6 +6,7 @@ import { SalariesManagement } from '../components/SalariesManagement';
 import { EvaluationManagement } from '../components/EvaluationManagement';
 import { TechnicianReports } from '../components/TechnicianReports';
 import { useTranslation } from 'react-i18next';
+import { techniciansService } from '../services';
 
 type TabType = 'technicians' | 'salaries' | 'evaluation' | 'reports';
 
@@ -22,13 +22,11 @@ export function Technicians() {
 
   async function loadTechnicians() {
     try {
-      const { data, error } = await supabase
-        .from('technicians')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTechnicians(data || []);
+      const data = await techniciansService.getAllTechnicians({
+        orderBy: 'created_at',
+        orderDirection: 'desc'
+      });
+      setTechnicians(data);
     } catch (error) {
       console.error('Error loading technicians:', error);
     } finally {
