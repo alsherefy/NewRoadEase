@@ -213,3 +213,201 @@ export interface Salary {
   updated_at: string;
   technician?: Technician;
 }
+
+// RBAC System Types
+
+export interface Role {
+  id: string;
+  organization_id: string;
+  name: string;
+  name_en: string;
+  key: string;
+  description?: string;
+  is_system_role: boolean;
+  is_active: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Permission {
+  id: string;
+  key: string;
+  resource: string;
+  action: string;
+  name_ar: string;
+  name_en: string;
+  description_ar?: string;
+  description_en?: string;
+  category: PermissionCategory;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface RolePermission {
+  id: string;
+  role_id: string;
+  permission_id: string;
+  granted_by?: string;
+  created_at: string;
+}
+
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role_id: string;
+  assigned_by?: string;
+  created_at: string;
+  role?: Role;
+}
+
+export interface UserPermissionOverride {
+  id: string;
+  user_id: string;
+  permission_id: string;
+  is_granted: boolean;
+  reason?: string;
+  granted_by?: string;
+  expires_at?: string;
+  created_at: string;
+  permission?: Permission;
+}
+
+export interface RBACUser extends User {
+  user_roles?: UserRole[];
+  computed_permissions?: string[];
+  permission_overrides?: UserPermissionOverride[];
+}
+
+export interface RoleWithPermissions extends Role {
+  permissions?: Permission[];
+  users_count?: number;
+}
+
+export type PermissionCategory = 'general' | 'operations' | 'financial' | 'reports' | 'administration';
+
+export type ResourceType =
+  | 'dashboard'
+  | 'customers'
+  | 'vehicles'
+  | 'work_orders'
+  | 'invoices'
+  | 'inventory'
+  | 'expenses'
+  | 'salaries'
+  | 'technicians'
+  | 'reports'
+  | 'settings'
+  | 'users'
+  | 'roles'
+  | 'audit_logs';
+
+export type ActionType =
+  | 'view'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'export'
+  | 'print'
+  | 'approve'
+  | 'cancel'
+  | 'complete'
+  | 'void'
+  | 'adjust_stock'
+  | 'view_performance'
+  | 'manage_assignments'
+  | 'financial'
+  | 'operations'
+  | 'performance'
+  | 'manage_workshop'
+  | 'manage_tax'
+  | 'manage_roles'
+  | 'manage_permissions'
+  | 'change_password';
+
+export type DetailedPermissionKey =
+  | 'dashboard.view'
+  | 'customers.view'
+  | 'customers.create'
+  | 'customers.update'
+  | 'customers.delete'
+  | 'customers.export'
+  | 'vehicles.view'
+  | 'vehicles.create'
+  | 'vehicles.update'
+  | 'vehicles.delete'
+  | 'work_orders.view'
+  | 'work_orders.create'
+  | 'work_orders.update'
+  | 'work_orders.delete'
+  | 'work_orders.cancel'
+  | 'work_orders.complete'
+  | 'work_orders.export'
+  | 'invoices.view'
+  | 'invoices.create'
+  | 'invoices.update'
+  | 'invoices.delete'
+  | 'invoices.print'
+  | 'invoices.export'
+  | 'invoices.void'
+  | 'inventory.view'
+  | 'inventory.create'
+  | 'inventory.update'
+  | 'inventory.delete'
+  | 'inventory.adjust_stock'
+  | 'inventory.export'
+  | 'expenses.view'
+  | 'expenses.create'
+  | 'expenses.update'
+  | 'expenses.delete'
+  | 'expenses.approve'
+  | 'expenses.export'
+  | 'salaries.view'
+  | 'salaries.create'
+  | 'salaries.update'
+  | 'salaries.delete'
+  | 'salaries.approve'
+  | 'salaries.export'
+  | 'technicians.view'
+  | 'technicians.create'
+  | 'technicians.update'
+  | 'technicians.delete'
+  | 'technicians.view_performance'
+  | 'technicians.manage_assignments'
+  | 'reports.view'
+  | 'reports.export'
+  | 'reports.financial'
+  | 'reports.operations'
+  | 'reports.performance'
+  | 'settings.view'
+  | 'settings.update'
+  | 'settings.manage_workshop'
+  | 'settings.manage_tax'
+  | 'users.view'
+  | 'users.create'
+  | 'users.update'
+  | 'users.delete'
+  | 'users.manage_roles'
+  | 'users.manage_permissions'
+  | 'users.change_password'
+  | 'roles.view'
+  | 'roles.create'
+  | 'roles.update'
+  | 'roles.delete'
+  | 'roles.manage_permissions'
+  | 'audit_logs.view';
+
+export interface AuditLog {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  action: string;
+  resource_type: string;
+  resource_id?: string;
+  old_value?: Record<string, unknown>;
+  new_value?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+}
