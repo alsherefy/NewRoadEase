@@ -1003,9 +1003,8 @@
     "no_results_found": "No results found",
     "no_data": "No data available",
     "not_specified": "Not specified",
-    "error": {
-      "update": "Error updating data"
-    },
+    "error": "An error occurred",
+    "error_update": "Error updating data",
     "months": {
       "january": "January",
       "february": "February",
