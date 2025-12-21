@@ -31,6 +31,16 @@ interface UserWithPerms extends User {
 
 type TabType = 'users' | 'roles' | 'permissions' | 'audit';
 
+function getUserPrimaryRole(user: User): 'admin' | 'customer_service' | 'receptionist' {
+  if (user.user_roles && user.user_roles.length > 0) {
+    const roleKey = user.user_roles[0].role?.key;
+    if (roleKey === 'admin' || roleKey === 'customer_service' || roleKey === 'receptionist') {
+      return roleKey;
+    }
+  }
+  return 'receptionist';
+}
+
 export function Users() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -279,7 +289,7 @@ export function Users() {
     setSelectedUser(user);
     setRoleFormData({
       user_id: user.id,
-      role: user.role,
+      role: getUserPrimaryRole(user),
     });
     setShowRoleModal(true);
   }
@@ -376,12 +386,12 @@ export function Users() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`rounded-full p-3 ${
-                      user.role === 'admin'
+                      getUserPrimaryRole(user) === 'admin'
                         ? 'bg-gradient-to-br from-orange-500 to-orange-600'
                         : 'bg-gradient-to-br from-blue-500 to-blue-600'
                     }`}
                   >
-                    {user.role === 'admin' ? (
+                    {getUserPrimaryRole(user) === 'admin' ? (
                       <Shield className="h-6 w-6 text-white" />
                     ) : (
                       <UsersIcon className="h-6 w-6 text-white" />
@@ -413,16 +423,16 @@ export function Users() {
                   <span className="text-sm text-gray-600">{t('users.role')}</span>
                   <span
                     className={`text-sm font-bold ${
-                      user.role === 'admin'
+                      getUserPrimaryRole(user) === 'admin'
                         ? 'text-orange-600'
-                        : user.role === 'customer_service'
+                        : getUserPrimaryRole(user) === 'customer_service'
                         ? 'text-green-600'
                         : 'text-blue-600'
                     }`}
                   >
-                    {user.role === 'admin'
+                    {getUserPrimaryRole(user) === 'admin'
                       ? t('roles.admin.name')
-                      : user.role === 'customer_service'
+                      : getUserPrimaryRole(user) === 'customer_service'
                       ? t('roles.customer_service.name')
                       : t('roles.receptionist.name')}
                   </span>
@@ -439,7 +449,7 @@ export function Users() {
                 </div>
               </div>
 
-              {(user.role === 'customer_service' || user.role === 'receptionist') && (
+              {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
                 <button
                   onClick={() => openPermissionsModal(user)}
                   className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"

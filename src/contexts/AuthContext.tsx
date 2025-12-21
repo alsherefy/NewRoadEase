@@ -70,13 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData);
 
-        const { data: permsData } = await supabase
-          .from('user_permissions')
-          .select('*')
-          .eq('user_id', userId);
-
-        setPermissions(permsData || []);
-
         const { data: rolesData } = await supabase
           .from('user_roles')
           .select(`
@@ -135,9 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setComputedPermissions([]);
   }
 
+  function hasRole(roleKey: string): boolean {
+    if (!user) return false;
+    return userRoles.some(ur => ur.role?.key === roleKey && ur.role?.is_active);
+  }
+
+  function isAdmin(): boolean {
+    return hasRole('admin');
+  }
+
   function hasPermission(key: PermissionKey | DetailedPermissionKey, requireEdit = false): boolean {
     if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (isAdmin()) return true;
 
     if (key.includes('.')) {
       return computedPermissions.includes(key);
@@ -156,27 +158,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function hasDetailedPermission(key: DetailedPermissionKey): boolean {
     if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (isAdmin()) return true;
     return computedPermissions.includes(key);
   }
 
   function hasAnyPermission(keys: (PermissionKey | DetailedPermissionKey)[]): boolean {
     if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (isAdmin()) return true;
     return keys.some(key => hasPermission(key));
   }
 
-  function hasRole(roleKey: string): boolean {
-    if (!user) return false;
-    return userRoles.some(ur => ur.role?.key === roleKey && ur.role?.is_active);
-  }
-
-  function isAdmin(): boolean {
-    return user?.role === 'admin';
-  }
-
   function isCustomerServiceOrAdmin(): boolean {
-    return user?.role === 'admin' || user?.role === 'customer_service' || user?.role === 'receptionist';
+    return hasRole('admin') || hasRole('customer_service') || hasRole('receptionist');
   }
 
   const value = {

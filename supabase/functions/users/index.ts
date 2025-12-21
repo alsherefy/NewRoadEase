@@ -35,9 +35,7 @@ Deno.serve(async (req: Request) => {
       case "GET": {
         if (userId && action === "permissions") {
           const { data, error } = await supabase
-            .from("user_permissions")
-            .select("*")
-            .eq("user_id", userId);
+            .rpc('get_user_all_permissions', { p_user_id: userId });
 
           if (error) throw new ApiError(error.message, "DB_ERROR", 500);
           return successResponse(data || []);
@@ -57,7 +55,15 @@ Deno.serve(async (req: Request) => {
         if (userId) {
           const { data, error } = await supabase
             .from("users")
-            .select(`*, permissions:user_permissions(*)`)
+            .select(`
+              *,
+              user_roles(
+                id,
+                role_id,
+                created_at,
+                role:roles(*)
+              )
+            `)
             .eq("id", userId)
             .maybeSingle();
 
@@ -68,7 +74,15 @@ Deno.serve(async (req: Request) => {
 
         const { data, error } = await supabase
           .from("users")
-          .select(`*, permissions:user_permissions(*)`)
+          .select(`
+            *,
+            user_roles(
+              id,
+              role_id,
+              created_at,
+              role:roles(*)
+            )
+          `)
           .order("created_at", { ascending: false });
 
         if (error) throw new ApiError(error.message, "DB_ERROR", 500);
@@ -78,7 +92,7 @@ Deno.serve(async (req: Request) => {
       case "POST": {
         if (action === "create") {
           const body = await req.json();
-          const { email, password, name, role } = body;
+          const { email, password, name, role_key } = body;
 
           const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
             auth: { autoRefreshToken: false, persistSession: false },
@@ -102,19 +116,41 @@ Deno.serve(async (req: Request) => {
 
           if (authError) throw new ApiError(authError.message, "AUTH_ERROR", 500);
 
-          const { data: userData, error: userError } = await supabase
+          const { data: userData, error: userError } = await adminClient
             .from("users")
             .insert({
               id: authData.user.id,
               email,
               full_name: name,
-              role: role || "receptionist",
               organization_id: currentUser.organization_id,
             })
             .select()
             .single();
 
           if (userError) throw new ApiError(userError.message, "DB_ERROR", 500);
+
+          const roleKeyToUse = role_key || "receptionist";
+          const { data: roleData, error: roleError } = await adminClient
+            .from("roles")
+            .select("id")
+            .eq("organization_id", currentUser.organization_id)
+            .eq("key", roleKeyToUse)
+            .eq("is_system_role", true)
+            .maybeSingle();
+
+          if (roleError || !roleData) {
+            throw new ApiError("Role not found", "ROLE_NOT_FOUND", 404);
+          }
+
+          const { error: userRoleError } = await adminClient
+            .from("user_roles")
+            .insert({
+              user_id: userData.id,
+              role_id: roleData.id,
+            });
+
+          if (userRoleError) throw new ApiError(userRoleError.message, "DB_ERROR", 500);
+
           return successResponse(userData, 201);
         }
 
@@ -123,35 +159,6 @@ Deno.serve(async (req: Request) => {
 
       case "PUT": {
         if (!userId) throw new ApiError("User ID required", "INVALID_REQUEST", 400);
-
-        if (action === "permissions") {
-          const body = await req.json();
-          const { permissions } = body;
-
-          const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: { autoRefreshToken: false, persistSession: false },
-          });
-
-          const { error: deleteError } = await adminClient
-            .from("user_permissions")
-            .delete()
-            .eq("user_id", userId);
-
-          if (deleteError) throw new ApiError(deleteError.message, "DB_ERROR", 500);
-
-          const permissionsToInsert = permissions
-            .filter((p: any) => p.can_view || p.can_edit)
-            .map((p: any) => ({ user_id: userId, ...p }));
-
-          if (permissionsToInsert.length > 0) {
-            const { error: insertError } = await adminClient
-              .from("user_permissions")
-              .insert(permissionsToInsert);
-            if (insertError) throw new ApiError(insertError.message, "DB_ERROR", 500);
-          }
-
-          return successResponse({ success: true });
-        }
 
         const body = await req.json();
         const { data, error } = await supabase

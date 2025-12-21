@@ -158,7 +158,11 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
         <div className="mb-4 p-4 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-800">
-            {t('permissions.role_info')}: <span className="font-semibold">{t(`roles.${user.role}`)}</span>
+            {t('permissions.role_info')}: <span className="font-semibold">
+              {user.user_roles && user.user_roles.length > 0
+                ? t(`roles.${user.user_roles[0].role?.key}`)
+                : t('roles.receptionist')}
+            </span>
           </p>
           <p className="text-xs text-blue-600 mt-1">
             {t('permissions.custom_override_info')}

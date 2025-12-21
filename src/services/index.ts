@@ -238,7 +238,10 @@ class UsersService {
   }
 
   async createUser(data: { email: string; password: string; name: string; role?: string }): Promise<User> {
-    return apiClient.post<User>('users/create', data);
+    return apiClient.post<User>('users/create', {
+      ...data,
+      role_key: data.role || 'receptionist'
+    });
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
