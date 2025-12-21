@@ -28,10 +28,19 @@ interface NavbarProps {
 }
 
 export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
-  const { user, signOut, hasPermission, isAdmin } = useAuth();
+  const { user, signOut, hasPermission, isAdmin, userRoles } = useAuth();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Get user's primary role
+  const getUserRole = () => {
+    if (!userRoles || userRoles.length === 0) return 'receptionist';
+    const role = userRoles[0]?.role?.key;
+    return role || 'receptionist';
+  };
+
+  const userRole = getUserRole();
 
   const tabs: Array<{
     id: string;
@@ -93,7 +102,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
           <div className="hidden lg:flex items-center gap-3">
             <LanguageSwitcher />
             <div className="flex items-center gap-3 bg-blue-800 bg-opacity-50 px-4 py-2 rounded-lg">
-              {user?.role === 'admin' ? (
+              {userRole === 'admin' ? (
                 <Shield className="h-5 w-5 text-yellow-300" />
               ) : (
                 <UserCircle className="h-5 w-5 text-white" />
@@ -101,7 +110,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               <div className="text-right">
                 <p className="text-white font-medium text-sm">{user?.full_name}</p>
                 <p className="text-blue-200 text-xs">
-                  {user?.role === 'admin' ? t('roles.admin.name') : user?.role === 'customer_service' ? t('roles.customer_service.name') : t('roles.receptionist.name')}
+                  {userRole === 'admin' ? t('roles.admin.name') : userRole === 'customer_service' ? t('roles.customer_service.name') : t('roles.receptionist.name')}
                 </p>
               </div>
             </div>
@@ -181,7 +190,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
             {/* User Info in Mobile Menu */}
             <div className="flex items-center gap-3 bg-blue-800 bg-opacity-50 px-3 py-2 rounded-lg">
-              {user?.role === 'admin' ? (
+              {userRole === 'admin' ? (
                 <Shield className="h-5 w-5 text-yellow-300 flex-shrink-0" />
               ) : (
                 <UserCircle className="h-5 w-5 text-white flex-shrink-0" />
@@ -189,7 +198,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               <div>
                 <p className="text-white font-medium text-sm">{user?.full_name}</p>
                 <p className="text-blue-200 text-xs">
-                  {user?.role === 'admin' ? t('roles.admin.name') : user?.role === 'customer_service' ? t('roles.customer_service.name') : t('roles.receptionist.name')}
+                  {userRole === 'admin' ? t('roles.admin.name') : userRole === 'customer_service' ? t('roles.customer_service.name') : t('roles.receptionist.name')}
                 </p>
               </div>
             </div>
