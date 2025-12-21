@@ -433,3 +433,6 @@ export const expensesService = new ExpensesService();
 export const reportsService = new ReportsService();
 export const settingsService = new SettingsService();
 export const dashboardService = new DashboardService();
+
+export { rolesService } from './rolesService';
+export { permissionsService } from './permissionsService';

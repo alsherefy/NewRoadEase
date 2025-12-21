@@ -1,18 +1,24 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { User, UserPermission, PermissionKey } from '../types';
+import { User, UserPermission, PermissionKey, UserRole, DetailedPermissionKey } from '../types';
 
 interface AuthContextType {
   user: User | null;
   supabaseUser: SupabaseUser | null;
   permissions: UserPermission[];
+  userRoles: UserRole[];
+  computedPermissions: string[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  hasPermission: (key: PermissionKey, requireEdit?: boolean) => boolean;
+  hasPermission: (key: PermissionKey | DetailedPermissionKey, requireEdit?: boolean) => boolean;
+  hasDetailedPermission: (key: DetailedPermissionKey) => boolean;
+  hasAnyPermission: (keys: (PermissionKey | DetailedPermissionKey)[]) => boolean;
+  hasRole: (roleKey: string) => boolean;
   isAdmin: () => boolean;
   isCustomerServiceOrAdmin: () => boolean;
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [permissions, setPermissions] = useState<UserPermission[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [computedPermissions, setComputedPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,11 +76,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId);
 
         setPermissions(permsData || []);
+
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select(`
+            *,
+            role:roles (*)
+          `)
+          .eq('user_id', userId);
+
+        setUserRoles(rolesData || []);
+
+        const { data: computedPerms } = await supabase
+          .rpc('get_user_all_permissions', { p_user_id: userId });
+
+        if (computedPerms) {
+          setComputedPermissions(computedPerms.map((p: { permission_key: string }) => p.permission_key));
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function refreshPermissions() {
+    if (user?.id) {
+      await loadUserData(user.id);
     }
   }
 
@@ -100,38 +131,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSupabaseUser(null);
     setPermissions([]);
+    setUserRoles([]);
+    setComputedPermissions([]);
   }
 
-  function hasPermission(key: PermissionKey, requireEdit = false): boolean {
+  function hasPermission(key: PermissionKey | DetailedPermissionKey, requireEdit = false): boolean {
     if (!user) return false;
     if (user.role === 'admin') return true;
 
-    const customPermission = permissions.find(p => p.permission_key === key);
-    if (customPermission) {
-      if (requireEdit) {
-        return customPermission.can_view && customPermission.can_edit;
-      }
-      return customPermission.can_view;
+    if (key.includes('.')) {
+      return computedPermissions.includes(key);
     }
 
-    if (user.role === 'customer_service') {
-      const allowedPermissions: PermissionKey[] = ['customers', 'work_orders', 'invoices', 'inventory', 'dashboard'];
-      if (allowedPermissions.includes(key)) {
-        return true;
-      }
+    const viewKey = `${key}.view`;
+    const hasViewPerm = computedPermissions.includes(viewKey);
+
+    if (requireEdit) {
+      const editKeys = [`${key}.create`, `${key}.update`, `${key}.delete`];
+      return hasViewPerm && editKeys.some(k => computedPermissions.includes(k));
     }
 
-    if (user.role === 'receptionist') {
-      const viewPermissions: PermissionKey[] = ['customers', 'work_orders', 'dashboard'];
-      const editPermissions: PermissionKey[] = ['customers'];
+    return hasViewPerm;
+  }
 
-      if (requireEdit) {
-        return editPermissions.includes(key);
-      }
-      return viewPermissions.includes(key);
-    }
+  function hasDetailedPermission(key: DetailedPermissionKey): boolean {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return computedPermissions.includes(key);
+  }
 
-    return false;
+  function hasAnyPermission(keys: (PermissionKey | DetailedPermissionKey)[]): boolean {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return keys.some(key => hasPermission(key));
+  }
+
+  function hasRole(roleKey: string): boolean {
+    if (!user) return false;
+    return userRoles.some(ur => ur.role?.key === roleKey && ur.role?.is_active);
   }
 
   function isAdmin(): boolean {
@@ -146,12 +183,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     supabaseUser,
     permissions,
+    userRoles,
+    computedPermissions,
     loading,
     signIn,
     signOut,
     hasPermission,
+    hasDetailedPermission,
+    hasAnyPermission,
+    hasRole,
     isAdmin,
     isCustomerServiceOrAdmin,
+    refreshPermissions,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
