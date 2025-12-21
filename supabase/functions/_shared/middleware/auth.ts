@@ -24,7 +24,7 @@ export async function authenticateRequest(req: Request): Promise<JWTPayload> {
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("role, organization_id, full_name, is_active")
+    .select("organization_id, full_name, is_active")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -40,22 +40,35 @@ export async function authenticateRequest(req: Request): Promise<JWTPayload> {
     throw new UnauthorizedError("User is not assigned to an organization");
   }
 
-  const userRole = profile.role as Role;
+  const { data: userRoles } = await supabase
+    .from("user_roles")
+    .select(`
+      role_id,
+      roles!inner(key, is_active)
+    `)
+    .eq("user_id", user.id)
+    .eq("roles.is_active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (!userRoles || !userRoles.roles) {
+    throw new UnauthorizedError("User has no active roles assigned");
+  }
+
+  const userRole = userRoles.roles.key as Role;
   if (!ALL_ROLES.includes(userRole)) {
-    throw new UnauthorizedError(`Invalid user role: ${profile.role}`);
+    throw new UnauthorizedError(`Invalid user role: ${userRoles.roles.key}`);
   }
 
   let permissions;
   if (userRole !== 'admin') {
-    const { data: userPermissions } = await supabase
-      .from("user_permissions")
-      .select("permission_key, can_view, can_edit")
-      .eq("user_id", user.id);
+    const { data: userPermissionsList } = await supabase
+      .rpc("get_user_all_permissions", { p_user_id: user.id });
 
-    permissions = userPermissions?.map(p => ({
+    permissions = userPermissionsList?.map(p => ({
       resource: p.permission_key,
-      can_view: p.can_view,
-      can_edit: p.can_edit
+      can_view: true,
+      can_edit: true
     })) || [];
   }
 
