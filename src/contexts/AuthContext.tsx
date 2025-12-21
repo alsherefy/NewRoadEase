@@ -115,14 +115,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (user.role === 'customer_service') {
-      const allowedPermissions: PermissionKey[] = ['customers', 'work_orders', 'invoices', 'inventory', 'dashboard'];
+      const allowedPermissions: PermissionKey[] = ['customers', 'work_orders', 'invoices', 'inventory', 'dashboard', 'expenses'];
       if (allowedPermissions.includes(key)) {
         return true;
       }
     }
 
     if (user.role === 'receptionist') {
-      const viewPermissions: PermissionKey[] = ['customers', 'work_orders', 'dashboard'];
+      const viewPermissions: PermissionKey[] = ['customers', 'work_orders', 'dashboard', 'expenses'];
       const editPermissions: PermissionKey[] = ['customers'];
 
       if (requireEdit) {
