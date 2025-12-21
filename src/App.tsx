@@ -16,6 +16,9 @@ import { Inventory } from './pages/Inventory';
 import { Expenses } from './pages/Expenses';
 import { Users } from './pages/Users';
 import { Settings } from './pages/Settings';
+import RolesManagement from './pages/RolesManagement';
+import PermissionsOverview from './pages/PermissionsOverview';
+import AuditLogs from './pages/AuditLogs';
 import { Login } from './pages/Login';
 import { Loader } from 'lucide-react';
 
@@ -33,7 +36,10 @@ type ViewType =
   | 'expenses'
   | 'reports'
   | 'users'
-  | 'settings';
+  | 'settings'
+  | 'roles-management'
+  | 'permissions-overview'
+  | 'audit-logs';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -148,6 +154,12 @@ function AppContent() {
         return <Users />;
       case 'settings':
         return <Settings />;
+      case 'roles-management':
+        return <RolesManagement />;
+      case 'permissions-overview':
+        return <PermissionsOverview />;
+      case 'audit-logs':
+        return <AuditLogs />;
       default:
         return <Dashboard />;
     }

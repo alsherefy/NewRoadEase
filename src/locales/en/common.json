@@ -46,7 +46,10 @@
     "expenses": "Expenses",
     "reports": "Performance Reports",
     "settings": "Settings",
-    "users": "Users"
+    "users": "Users",
+    "rolesManagement": "Roles Management",
+    "permissionsOverview": "Permissions Overview",
+    "auditLogs": "Audit Logs"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1109,5 +1112,61 @@
     "resource_type": "Resource Type",
     "performed_by": "Performed By",
     "performed_at": "Performed At"
+  },
+  "admin": {
+    "roles": {
+      "title": "Roles Management",
+      "subtitle": "Manage user roles and their permissions",
+      "systemRole": "System Role",
+      "usersCount": "Users Count",
+      "permissionsCount": "Permissions Count",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "managePermissions": "Manage Permissions",
+      "editRole": "Edit Role",
+      "roleName": "Role Name",
+      "activeRole": "Active Role",
+      "selectedPermissions": "Selected Permissions",
+      "cannotDeleteSystemRole": "Cannot delete system roles",
+      "deleteRoleConfirm": "Are you sure you want to delete {{role}} role?",
+      "roleUpdated": "Role updated successfully",
+      "roleDeleted": "Role deleted successfully",
+      "permissionsUpdated": "Permissions updated successfully"
+    },
+    "permissions": {
+      "title": "Permissions Overview",
+      "subtitle": "Browse all system permissions",
+      "totalPermissions": "Total Permissions",
+      "categories": "Categories",
+      "resources": "Resources",
+      "filtered": "Filtered",
+      "searchPlaceholder": "Search for permission...",
+      "allCategories": "All Categories",
+      "permissionsInCategory": "permissions in this category",
+      "noResults": "No results found",
+      "tryDifferentSearch": "Try different search terms"
+    },
+    "audit": {
+      "title": "Audit Logs",
+      "subtitle": "Track all system operations and changes",
+      "totalLogs": "Total Logs",
+      "currentPage": "Current Page",
+      "actions": "Actions",
+      "resources": "Resources",
+      "searchPlaceholder": "Search logs...",
+      "allActions": "All Actions",
+      "allResources": "All Resources",
+      "noLogs": "No logs found",
+      "noLogsDescription": "No operations have been recorded yet",
+      "ipAddress": "IP Address",
+      "oldValues": "Old Values",
+      "newValues": "New Values",
+      "userAgent": "User Agent",
+      "showing": "Showing",
+      "of": "of",
+      "previous": "Previous",
+      "next": "Next"
+    }
   }
 }

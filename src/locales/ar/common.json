@@ -46,7 +46,10 @@
     "expenses": "المصروفات",
     "reports": "تقارير الأداء",
     "settings": "الإعدادات",
-    "users": "المستخدمين"
+    "users": "المستخدمين",
+    "rolesManagement": "إدارة الأدوار",
+    "permissionsOverview": "عرض الصلاحيات",
+    "auditLogs": "سجلات التدقيق"
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -1109,5 +1112,61 @@
     "resource_type": "نوع المورد",
     "performed_by": "نفذه",
     "performed_at": "نفذ في"
+  },
+  "admin": {
+    "roles": {
+      "title": "إدارة الأدوار",
+      "subtitle": "إدارة أدوار المستخدمين وصلاحياتهم",
+      "systemRole": "دور أساسي",
+      "usersCount": "عدد المستخدمين",
+      "permissionsCount": "عدد الصلاحيات",
+      "status": "الحالة",
+      "active": "مفعّل",
+      "inactive": "غير مفعّل",
+      "managePermissions": "إدارة الصلاحيات",
+      "editRole": "تعديل الدور",
+      "roleName": "اسم الدور",
+      "activeRole": "تفعيل الدور",
+      "selectedPermissions": "الصلاحيات المحددة",
+      "cannotDeleteSystemRole": "لا يمكن حذف الأدوار الأساسية",
+      "deleteRoleConfirm": "هل أنت متأكد من حذف دور {{role}}؟",
+      "roleUpdated": "تم تحديث الدور بنجاح",
+      "roleDeleted": "تم حذف الدور بنجاح",
+      "permissionsUpdated": "تم تحديث الصلاحيات بنجاح"
+    },
+    "permissions": {
+      "title": "عرض الصلاحيات",
+      "subtitle": "استعراض جميع صلاحيات النظام",
+      "totalPermissions": "إجمالي الصلاحيات",
+      "categories": "الفئات",
+      "resources": "الموارد",
+      "filtered": "المفلترة",
+      "searchPlaceholder": "ابحث عن صلاحية...",
+      "allCategories": "جميع الفئات",
+      "permissionsInCategory": "صلاحية في هذه الفئة",
+      "noResults": "لا توجد نتائج",
+      "tryDifferentSearch": "جرب كلمات بحث أخرى"
+    },
+    "audit": {
+      "title": "سجلات التدقيق",
+      "subtitle": "تتبع جميع العمليات والتغييرات في النظام",
+      "totalLogs": "إجمالي السجلات",
+      "currentPage": "الصفحة الحالية",
+      "actions": "الإجراءات",
+      "resources": "الموارد",
+      "searchPlaceholder": "ابحث في السجلات...",
+      "allActions": "جميع الإجراءات",
+      "allResources": "جميع الموارد",
+      "noLogs": "لا توجد سجلات",
+      "noLogsDescription": "لم يتم تسجيل أي إجراءات بعد",
+      "ipAddress": "عنوان IP",
+      "oldValues": "القيم القديمة",
+      "newValues": "القيم الجديدة",
+      "userAgent": "متصفح المستخدم",
+      "showing": "عرض",
+      "of": "من",
+      "previous": "السابق",
+      "next": "التالي"
+    }
   }
 }

@@ -51,7 +51,12 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
   ];
 
   if (isAdmin()) {
-    tabs.push({ id: 'users', label: t('nav.users'), icon: UsersIcon, permission: 'users' });
+    tabs.push(
+      { id: 'users', label: t('nav.users'), icon: UsersIcon, permission: 'users' },
+      { id: 'roles-management', label: t('nav.rolesManagement'), icon: Shield },
+      { id: 'permissions-overview', label: t('nav.permissionsOverview'), icon: Shield },
+      { id: 'audit-logs', label: t('nav.auditLogs'), icon: FileText }
+    );
   }
 
   const visibleTabs = tabs.filter(
