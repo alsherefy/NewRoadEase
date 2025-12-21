@@ -3,7 +3,7 @@
  * Defines baseline permissions that can be customized per user
  */
 
-import { ROLES, PERMISSION_KEYS, Permission } from "./roles.ts";
+import { ROLES, PERMISSION_KEYS, Permission } from "../_shared/constants/roles.ts";
 
 export const DEFAULT_PERMISSIONS: Record<string, Permission[]> = {
   [ROLES.ADMIN]: [

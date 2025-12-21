@@ -1,4 +1,4 @@
-import { JWTPayload } from "../types.ts";
+import { JWTPayload } from "../_shared/types.ts";
 
 export function applyRoleBasedFilter<T>(
   query: T,

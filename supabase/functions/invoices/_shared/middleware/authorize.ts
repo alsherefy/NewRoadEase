@@ -1,5 +1,5 @@
-import { JWTPayload, ForbiddenError } from "../types.ts";
-import { Role, PermissionKey, ROLES } from "../constants/roles.ts";
+import { JWTPayload, ForbiddenError } from "../_shared/types.ts";
+import { Role, PermissionKey, ROLES } from "../_shared/constants/roles.ts";
 
 export function requireRole(user: JWTPayload, allowedRoles: Role[]): void {
   if (!allowedRoles.includes(user.role)) {
