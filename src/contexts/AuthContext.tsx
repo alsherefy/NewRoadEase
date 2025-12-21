@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData);
 
-        const { data: rolesData } = await supabase
+        const { data: rolesData, error: rolesError } = await supabase
           .from('user_roles')
           .select(`
             *,
@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           `)
           .eq('user_id', userId);
 
+        console.log('🔍 Loading user roles:', { rolesData, rolesError });
         setUserRoles(rolesData || []);
 
         const { data: computedPerms } = await supabase
