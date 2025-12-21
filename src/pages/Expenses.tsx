@@ -28,7 +28,7 @@ interface Expense {
 export function Expenses() {
   const { t } = useTranslation();
   const toast = useToast();
-  const { user, isAdmin, hasPermission } = useAuth();
+  const { user } = useAuth();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,8 +237,6 @@ export function Expenses() {
     return matchesSearch && matchesCategory;
   });
 
-  const canEdit = isAdmin() || hasPermission('expenses', true);
-
   const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
   const todayExpenses = expenses
     .filter(exp => exp.expense_date === new Date().toISOString().split('T')[0])
@@ -269,15 +267,13 @@ export function Expenses() {
           <h2 className="text-3xl font-bold text-gray-900">{t('expenses.title')}</h2>
           <p className="text-gray-500 mt-1">{t('expenses.subtitle')}</p>
         </div>
-        {canEdit && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 duration-200"
-          >
-            <Plus className="h-5 w-5" />
-            <span className="font-semibold">{t('expenses.add_expense')}</span>
-          </button>
-        )}
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 duration-200"
+        >
+          <Plus className="h-5 w-5" />
+          <span className="font-semibold">{t('expenses.add_expense')}</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -432,22 +428,18 @@ export function Expenses() {
                             <Clock className="h-4 w-4" />
                           </button>
                         )}
-                        {canEdit && (
-                          <>
-                            <button
-                              onClick={() => handleEdit(expense)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(expense.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => handleEdit(expense)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(expense.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
