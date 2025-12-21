@@ -393,10 +393,10 @@ export function Users() {
                   }`}
                 >
                   {user.role === 'admin'
-                    ? t('roles.admin')
+                    ? t('roles.admin.name')
                     : user.role === 'customer_service'
-                    ? t('roles.customer_service')
-                    : t('roles.receptionist')}
+                    ? t('roles.customer_service.name')
+                    : t('roles.receptionist.name')}
                 </span>
               </div>
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -523,9 +523,9 @@ export function Users() {
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="admin">{t('roles.admin')}</option>
-                  <option value="customer_service">{t('roles.customer_service')}</option>
-                  <option value="receptionist">{t('roles.receptionist')}</option>
+                  <option value="admin">{t('roles.admin.name')}</option>
+                  <option value="customer_service">{t('roles.customer_service.name')}</option>
+                  <option value="receptionist">{t('roles.receptionist.name')}</option>
                 </select>
               </div>
 
@@ -668,9 +668,9 @@ export function Users() {
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
-                  <option value="admin">{t('roles.admin')}</option>
-                  <option value="customer_service">{t('roles.customer_service')}</option>
-                  <option value="receptionist">{t('roles.receptionist')}</option>
+                  <option value="admin">{t('roles.admin.name')}</option>
+                  <option value="customer_service">{t('roles.customer_service.name')}</option>
+                  <option value="receptionist">{t('roles.receptionist.name')}</option>
                 </select>
               </div>
 

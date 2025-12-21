@@ -23,9 +23,18 @@
     "error_unexpected": "حدث خطأ غير متوقع"
   },
   "roles": {
-    "admin": "مدير",
-    "customer_service": "خدمة عملاء",
-    "receptionist": "استقبال"
+    "admin": {
+      "name": "مدير",
+      "description": "صلاحيات كاملة على النظام"
+    },
+    "customer_service": {
+      "name": "خدمة عملاء",
+      "description": "صلاحيات متوسطة للعمليات والفواتير"
+    },
+    "receptionist": {
+      "name": "موظف استقبال",
+      "description": "صلاحيات محدودة للاستقبال والعملاء"
+    }
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -666,7 +675,257 @@
     "custom_override_info": "الصلاحيات المخصصة ستتجاوز صلاحيات الدور الافتراضية",
     "error_loading": "خطأ في تحميل الصلاحيات",
     "error_saving": "خطأ في حفظ الصلاحيات",
-    "success_saved": "تم حفظ الصلاحيات بنجاح"
+    "success_saved": "تم حفظ الصلاحيات بنجاح",
+    "details": {
+      "dashboard.view": {
+        "name": "عرض لوحة التحكم",
+        "description": "القدرة على رؤية لوحة التحكم والإحصائيات"
+      },
+      "customers.view": {
+        "name": "عرض العملاء",
+        "description": "القدرة على عرض قائمة العملاء وتفاصيلهم"
+      },
+      "customers.create": {
+        "name": "إضافة عميل",
+        "description": "القدرة على إضافة عملاء جدد"
+      },
+      "customers.update": {
+        "name": "تعديل العملاء",
+        "description": "القدرة على تعديل بيانات العملاء"
+      },
+      "customers.delete": {
+        "name": "حذف العملاء",
+        "description": "القدرة على حذف العملاء"
+      },
+      "customers.export": {
+        "name": "تصدير العملاء",
+        "description": "القدرة على تصدير بيانات العملاء"
+      },
+      "vehicles.view": {
+        "name": "عرض المركبات",
+        "description": "القدرة على عرض قائمة المركبات"
+      },
+      "vehicles.create": {
+        "name": "إضافة مركبة",
+        "description": "القدرة على إضافة مركبات جديدة"
+      },
+      "vehicles.update": {
+        "name": "تعديل المركبات",
+        "description": "القدرة على تعديل بيانات المركبات"
+      },
+      "vehicles.delete": {
+        "name": "حذف المركبات",
+        "description": "القدرة على حذف المركبات"
+      },
+      "work_orders.view": {
+        "name": "عرض أوامر العمل",
+        "description": "القدرة على عرض أوامر العمل"
+      },
+      "work_orders.create": {
+        "name": "إنشاء أمر عمل",
+        "description": "القدرة على إنشاء أوامر عمل جديدة"
+      },
+      "work_orders.update": {
+        "name": "تعديل أوامر العمل",
+        "description": "القدرة على تعديل أوامر العمل"
+      },
+      "work_orders.delete": {
+        "name": "حذف أوامر العمل",
+        "description": "القدرة على حذف أوامر العمل"
+      },
+      "work_orders.cancel": {
+        "name": "إلغاء أوامر العمل",
+        "description": "القدرة على إلغاء أوامر العمل"
+      },
+      "work_orders.complete": {
+        "name": "إكمال أوامر العمل",
+        "description": "القدرة على تحديد أوامر العمل كمكتملة"
+      },
+      "work_orders.export": {
+        "name": "تصدير أوامر العمل",
+        "description": "القدرة على تصدير بيانات أوامر العمل"
+      },
+      "invoices.view": {
+        "name": "عرض الفواتير",
+        "description": "القدرة على عرض الفواتير"
+      },
+      "invoices.create": {
+        "name": "إنشاء فاتورة",
+        "description": "القدرة على إنشاء فواتير جديدة"
+      },
+      "invoices.update": {
+        "name": "تعديل الفواتير",
+        "description": "القدرة على تعديل الفواتير"
+      },
+      "invoices.delete": {
+        "name": "حذف الفواتير",
+        "description": "القدرة على حذف الفواتير"
+      },
+      "invoices.print": {
+        "name": "طباعة الفواتير",
+        "description": "القدرة على طباعة الفواتير"
+      },
+      "invoices.export": {
+        "name": "تصدير الفواتير",
+        "description": "القدرة على تصدير بيانات الفواتير"
+      },
+      "inventory.view": {
+        "name": "عرض المخزون",
+        "description": "القدرة على عرض قطع الغيار"
+      },
+      "inventory.create": {
+        "name": "إضافة قطعة",
+        "description": "القدرة على إضافة قطع غيار جديدة"
+      },
+      "inventory.update": {
+        "name": "تعديل المخزون",
+        "description": "القدرة على تعديل بيانات قطع الغيار"
+      },
+      "inventory.delete": {
+        "name": "حذف من المخزون",
+        "description": "القدرة على حذف قطع الغيار"
+      },
+      "inventory.adjust_stock": {
+        "name": "تعديل الكميات",
+        "description": "القدرة على تعديل كميات المخزون"
+      },
+      "inventory.export": {
+        "name": "تصدير المخزون",
+        "description": "القدرة على تصدير بيانات المخزون"
+      },
+      "expenses.view": {
+        "name": "عرض المصروفات",
+        "description": "القدرة على عرض المصروفات"
+      },
+      "expenses.create": {
+        "name": "إضافة مصروف",
+        "description": "القدرة على إضافة مصروفات جديدة"
+      },
+      "expenses.update": {
+        "name": "تعديل المصروفات",
+        "description": "القدرة على تعديل المصروفات"
+      },
+      "expenses.delete": {
+        "name": "حذف المصروفات",
+        "description": "القدرة على حذف المصروفات"
+      },
+      "expenses.export": {
+        "name": "تصدير المصروفات",
+        "description": "القدرة على تصدير بيانات المصروفات"
+      },
+      "salaries.view": {
+        "name": "عرض الرواتب",
+        "description": "القدرة على عرض الرواتب"
+      },
+      "salaries.create": {
+        "name": "إضافة راتب",
+        "description": "القدرة على إضافة سجلات رواتب"
+      },
+      "salaries.update": {
+        "name": "تعديل الرواتب",
+        "description": "القدرة على تعديل سجلات الرواتب"
+      },
+      "salaries.delete": {
+        "name": "حذف الرواتب",
+        "description": "القدرة على حذف سجلات الرواتب"
+      },
+      "salaries.export": {
+        "name": "تصدير الرواتب",
+        "description": "القدرة على تصدير بيانات الرواتب"
+      },
+      "technicians.view": {
+        "name": "عرض الفنيين",
+        "description": "القدرة على عرض قائمة الفنيين"
+      },
+      "technicians.create": {
+        "name": "إضافة فني",
+        "description": "القدرة على إضافة فنيين جدد"
+      },
+      "technicians.update": {
+        "name": "تعديل الفنيين",
+        "description": "القدرة على تعديل بيانات الفنيين"
+      },
+      "technicians.delete": {
+        "name": "حذف الفنيين",
+        "description": "القدرة على حذف الفنيين"
+      },
+      "technicians.view_performance": {
+        "name": "عرض أداء الفنيين",
+        "description": "القدرة على عرض تقارير أداء الفنيين"
+      },
+      "technicians.export": {
+        "name": "تصدير الفنيين",
+        "description": "القدرة على تصدير بيانات الفنيين"
+      },
+      "reports.view": {
+        "name": "عرض التقارير",
+        "description": "القدرة على عرض التقارير"
+      },
+      "reports.export": {
+        "name": "تصدير التقارير",
+        "description": "القدرة على تصدير التقارير"
+      },
+      "reports.financial": {
+        "name": "التقارير المالية",
+        "description": "القدرة على عرض التقارير المالية"
+      },
+      "reports.operations": {
+        "name": "تقارير العمليات",
+        "description": "القدرة على عرض تقارير العمليات"
+      },
+      "settings.view": {
+        "name": "عرض الإعدادات",
+        "description": "القدرة على عرض إعدادات الورشة"
+      },
+      "settings.update": {
+        "name": "تعديل الإعدادات",
+        "description": "القدرة على تعديل إعدادات الورشة"
+      },
+      "users.view": {
+        "name": "عرض المستخدمين",
+        "description": "القدرة على عرض قائمة المستخدمين"
+      },
+      "users.create": {
+        "name": "إضافة مستخدم",
+        "description": "القدرة على إضافة مستخدمين جدد"
+      },
+      "users.update": {
+        "name": "تعديل المستخدمين",
+        "description": "القدرة على تعديل بيانات المستخدمين"
+      },
+      "users.delete": {
+        "name": "حذف المستخدمين",
+        "description": "القدرة على حذف المستخدمين"
+      },
+      "users.manage_permissions": {
+        "name": "إدارة الصلاحيات",
+        "description": "القدرة على إدارة صلاحيات المستخدمين"
+      },
+      "roles.view": {
+        "name": "عرض الأدوار",
+        "description": "القدرة على عرض قائمة الأدوار"
+      },
+      "roles.create": {
+        "name": "إضافة دور",
+        "description": "القدرة على إضافة أدوار جديدة"
+      },
+      "roles.update": {
+        "name": "تعديل الأدوار",
+        "description": "القدرة على تعديل الأدوار"
+      },
+      "roles.delete": {
+        "name": "حذف الأدوار",
+        "description": "القدرة على حذف الأدوار"
+      },
+      "roles.manage_permissions": {
+        "name": "إدارة صلاحيات الأدوار",
+        "description": "القدرة على إدارة الصلاحيات المرتبطة بالأدوار"
+      },
+      "audit_logs.view": {
+        "name": "عرض سجل التدقيق",
+        "description": "القدرة على عرض سجل التدقيق والأنشطة"
+      }
+    }
   },
   "common": {
     "loading": "جاري التحميل...",

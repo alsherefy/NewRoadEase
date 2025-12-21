@@ -23,9 +23,18 @@
     "error_unexpected": "An unexpected error occurred"
   },
   "roles": {
-    "admin": "Admin",
-    "customer_service": "Customer Service",
-    "receptionist": "Receptionist"
+    "admin": {
+      "name": "Administrator",
+      "description": "Full system access and permissions"
+    },
+    "customer_service": {
+      "name": "Customer Service",
+      "description": "Medium-level permissions for operations and billing"
+    },
+    "receptionist": {
+      "name": "Receptionist",
+      "description": "Limited permissions for reception and customer management"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -666,7 +675,257 @@
     "custom_override_info": "Custom permissions will override default role permissions",
     "error_loading": "Error loading permissions",
     "error_saving": "Error saving permissions",
-    "success_saved": "Permissions saved successfully"
+    "success_saved": "Permissions saved successfully",
+    "details": {
+      "dashboard.view": {
+        "name": "View Dashboard",
+        "description": "Ability to view dashboard and statistics"
+      },
+      "customers.view": {
+        "name": "View Customers",
+        "description": "Ability to view customers list and details"
+      },
+      "customers.create": {
+        "name": "Create Customer",
+        "description": "Ability to create new customers"
+      },
+      "customers.update": {
+        "name": "Update Customers",
+        "description": "Ability to update customer data"
+      },
+      "customers.delete": {
+        "name": "Delete Customers",
+        "description": "Ability to delete customers"
+      },
+      "customers.export": {
+        "name": "Export Customers",
+        "description": "Ability to export customer data"
+      },
+      "vehicles.view": {
+        "name": "View Vehicles",
+        "description": "Ability to view vehicles list"
+      },
+      "vehicles.create": {
+        "name": "Create Vehicle",
+        "description": "Ability to create new vehicles"
+      },
+      "vehicles.update": {
+        "name": "Update Vehicles",
+        "description": "Ability to update vehicle data"
+      },
+      "vehicles.delete": {
+        "name": "Delete Vehicles",
+        "description": "Ability to delete vehicles"
+      },
+      "work_orders.view": {
+        "name": "View Work Orders",
+        "description": "Ability to view work orders"
+      },
+      "work_orders.create": {
+        "name": "Create Work Order",
+        "description": "Ability to create new work orders"
+      },
+      "work_orders.update": {
+        "name": "Update Work Orders",
+        "description": "Ability to update work orders"
+      },
+      "work_orders.delete": {
+        "name": "Delete Work Orders",
+        "description": "Ability to delete work orders"
+      },
+      "work_orders.cancel": {
+        "name": "Cancel Work Orders",
+        "description": "Ability to cancel work orders"
+      },
+      "work_orders.complete": {
+        "name": "Complete Work Orders",
+        "description": "Ability to mark work orders as complete"
+      },
+      "work_orders.export": {
+        "name": "Export Work Orders",
+        "description": "Ability to export work orders data"
+      },
+      "invoices.view": {
+        "name": "View Invoices",
+        "description": "Ability to view invoices"
+      },
+      "invoices.create": {
+        "name": "Create Invoice",
+        "description": "Ability to create new invoices"
+      },
+      "invoices.update": {
+        "name": "Update Invoices",
+        "description": "Ability to update invoices"
+      },
+      "invoices.delete": {
+        "name": "Delete Invoices",
+        "description": "Ability to delete invoices"
+      },
+      "invoices.print": {
+        "name": "Print Invoices",
+        "description": "Ability to print invoices"
+      },
+      "invoices.export": {
+        "name": "Export Invoices",
+        "description": "Ability to export invoices data"
+      },
+      "inventory.view": {
+        "name": "View Inventory",
+        "description": "Ability to view spare parts inventory"
+      },
+      "inventory.create": {
+        "name": "Create Spare Part",
+        "description": "Ability to add new spare parts"
+      },
+      "inventory.update": {
+        "name": "Update Inventory",
+        "description": "Ability to update spare parts data"
+      },
+      "inventory.delete": {
+        "name": "Delete from Inventory",
+        "description": "Ability to delete spare parts"
+      },
+      "inventory.adjust_stock": {
+        "name": "Adjust Stock",
+        "description": "Ability to adjust stock quantities"
+      },
+      "inventory.export": {
+        "name": "Export Inventory",
+        "description": "Ability to export inventory data"
+      },
+      "expenses.view": {
+        "name": "View Expenses",
+        "description": "Ability to view expenses"
+      },
+      "expenses.create": {
+        "name": "Create Expense",
+        "description": "Ability to add new expenses"
+      },
+      "expenses.update": {
+        "name": "Update Expenses",
+        "description": "Ability to update expenses"
+      },
+      "expenses.delete": {
+        "name": "Delete Expenses",
+        "description": "Ability to delete expenses"
+      },
+      "expenses.export": {
+        "name": "Export Expenses",
+        "description": "Ability to export expenses data"
+      },
+      "salaries.view": {
+        "name": "View Salaries",
+        "description": "Ability to view salaries"
+      },
+      "salaries.create": {
+        "name": "Create Salary",
+        "description": "Ability to add salary records"
+      },
+      "salaries.update": {
+        "name": "Update Salaries",
+        "description": "Ability to update salary records"
+      },
+      "salaries.delete": {
+        "name": "Delete Salaries",
+        "description": "Ability to delete salary records"
+      },
+      "salaries.export": {
+        "name": "Export Salaries",
+        "description": "Ability to export salaries data"
+      },
+      "technicians.view": {
+        "name": "View Technicians",
+        "description": "Ability to view technicians list"
+      },
+      "technicians.create": {
+        "name": "Create Technician",
+        "description": "Ability to add new technicians"
+      },
+      "technicians.update": {
+        "name": "Update Technicians",
+        "description": "Ability to update technicians data"
+      },
+      "technicians.delete": {
+        "name": "Delete Technicians",
+        "description": "Ability to delete technicians"
+      },
+      "technicians.view_performance": {
+        "name": "View Technician Performance",
+        "description": "Ability to view technician performance reports"
+      },
+      "technicians.export": {
+        "name": "Export Technicians",
+        "description": "Ability to export technicians data"
+      },
+      "reports.view": {
+        "name": "View Reports",
+        "description": "Ability to view reports"
+      },
+      "reports.export": {
+        "name": "Export Reports",
+        "description": "Ability to export reports"
+      },
+      "reports.financial": {
+        "name": "Financial Reports",
+        "description": "Ability to view financial reports"
+      },
+      "reports.operations": {
+        "name": "Operations Reports",
+        "description": "Ability to view operations reports"
+      },
+      "settings.view": {
+        "name": "View Settings",
+        "description": "Ability to view workshop settings"
+      },
+      "settings.update": {
+        "name": "Update Settings",
+        "description": "Ability to update workshop settings"
+      },
+      "users.view": {
+        "name": "View Users",
+        "description": "Ability to view users list"
+      },
+      "users.create": {
+        "name": "Create User",
+        "description": "Ability to add new users"
+      },
+      "users.update": {
+        "name": "Update Users",
+        "description": "Ability to update users data"
+      },
+      "users.delete": {
+        "name": "Delete Users",
+        "description": "Ability to delete users"
+      },
+      "users.manage_permissions": {
+        "name": "Manage Permissions",
+        "description": "Ability to manage user permissions"
+      },
+      "roles.view": {
+        "name": "View Roles",
+        "description": "Ability to view roles list"
+      },
+      "roles.create": {
+        "name": "Create Role",
+        "description": "Ability to add new roles"
+      },
+      "roles.update": {
+        "name": "Update Roles",
+        "description": "Ability to update roles"
+      },
+      "roles.delete": {
+        "name": "Delete Roles",
+        "description": "Ability to delete roles"
+      },
+      "roles.manage_permissions": {
+        "name": "Manage Role Permissions",
+        "description": "Ability to manage permissions associated with roles"
+      },
+      "audit_logs.view": {
+        "name": "View Audit Logs",
+        "description": "Ability to view audit logs and activities"
+      }
+    }
   },
   "common": {
     "loading": "Loading...",
