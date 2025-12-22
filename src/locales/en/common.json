@@ -558,6 +558,7 @@
     "expenses_chart": "Expenses Chart",
     "monthly_summary": "Monthly Summary",
     "yearly_summary": "Yearly Summary",
+    "export": "Export",
     "export_pdf": "Export PDF",
     "export_excel": "Export Excel",
     "select_period": "Select Period",
@@ -931,7 +932,29 @@
       "audit_logs.view": {
         "name": "View Audit Logs",
         "description": "Ability to view audit logs and activities"
+      },
+      "technicians.manage_assignments": {
+        "name": "Manage Technician Assignments",
+        "description": "Ability to assign technicians to work orders"
+      },
+      "users.manage_roles": {
+        "name": "Manage User Roles",
+        "description": "Ability to assign and manage user roles"
+      },
+      "users.change_password": {
+        "name": "Change User Password",
+        "description": "Ability to change user passwords"
+      },
+      "settings.manage_tax": {
+        "name": "Manage Tax Settings",
+        "description": "Ability to manage tax configuration"
       }
+    },
+    "categories": {
+      "general": "General",
+      "financial": "Financial",
+      "reports": "Reports",
+      "system": "System Administration"
     }
   },
   "common": {

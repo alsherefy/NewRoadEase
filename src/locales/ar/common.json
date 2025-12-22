@@ -558,6 +558,7 @@
     "expenses_chart": "مخطط المصروفات",
     "monthly_summary": "ملخص شهري",
     "yearly_summary": "ملخص سنوي",
+    "export": "تصدير",
     "export_pdf": "تصدير PDF",
     "export_excel": "تصدير Excel",
     "select_period": "اختر الفترة",
@@ -931,7 +932,29 @@
       "audit_logs.view": {
         "name": "عرض سجل التدقيق",
         "description": "القدرة على عرض سجل التدقيق والأنشطة"
+      },
+      "technicians.manage_assignments": {
+        "name": "إدارة تعيينات الفنيين",
+        "description": "القدرة على تعيين الفنيين لأوامر العمل"
+      },
+      "users.manage_roles": {
+        "name": "إدارة أدوار المستخدمين",
+        "description": "القدرة على تعيين وإدارة أدوار المستخدمين"
+      },
+      "users.change_password": {
+        "name": "تغيير كلمة مرور المستخدم",
+        "description": "القدرة على تغيير كلمات مرور المستخدمين"
+      },
+      "settings.manage_tax": {
+        "name": "إدارة إعدادات الضرائب",
+        "description": "القدرة على إدارة تكوين الضرائب"
       }
+    },
+    "categories": {
+      "general": "عام",
+      "financial": "مالي",
+      "reports": "تقارير",
+      "system": "إدارة النظام"
     }
   },
   "common": {
