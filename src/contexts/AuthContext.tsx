@@ -71,12 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
 
         const { data: rolesData, error: rolesError } = await supabase
-          .from('user_roles')
-          .select(`
-            *,
-            role:roles (*)
-          `)
-          .eq('user_id', userId);
+          .rpc('get_user_roles', { p_user_id: userId });
 
         console.log('🔍 Loading user roles:', { rolesData, rolesError });
         setUserRoles(rolesData || []);
