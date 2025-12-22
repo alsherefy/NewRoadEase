@@ -1,3 +1,4 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
@@ -9,35 +10,53 @@ const corsHeaders = {
 interface ApiResponse<T = any> {
   success: boolean;
   data: T | null;
-  error: {
-    code: string;
-    message: string;
-    details?: any;
-  } | null;
+  error: { code: string; message: string; details?: any } | null;
 }
 
-function successResponse<T>(data: T): Response {
-  const response: ApiResponse<T> = {
-    success: true,
-    data,
-    error: null,
-  };
-  return new Response(JSON.stringify(response), {
-    status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-function errorResponse(message: string, status = 400, code = 'ERROR', details?: any): Response {
-  const response: ApiResponse = {
-    success: false,
-    data: null,
-    error: { code, message, details },
-  };
+function successResponse<T>(data: T, status = 200): Response {
+  const response: ApiResponse<T> = { success: true, data, error: null };
   return new Response(JSON.stringify(response), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+function errorResponse(message: string, status = 400, code = 'ERROR'): Response {
+  const response: ApiResponse = { success: false, data: null, error: { code, message } };
+  return new Response(JSON.stringify(response), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function authenticateUser(req: Request, supabaseServiceKey: string, supabaseUrl: string) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) throw new Error('Invalid or expired token');
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('organization_id, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!profile || !profile.is_active) throw new Error('User profile not found or inactive');
+
+  const { data: userRoles } = await supabase
+    .rpc('get_user_roles', { p_user_id: user.id });
+
+  if (!userRoles || userRoles.length === 0) throw new Error('User has no active roles');
+
+  const isAdmin = userRoles[0].role.key === 'admin';
+
+  return { userId: user.id, organizationId: profile.organization_id, isAdmin };
 }
 
 Deno.serve(async (req: Request) => {
@@ -48,47 +67,25 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const auth = await authenticateUser(req, supabaseServiceKey, supabaseUrl);
+
+    if (!auth.isAdmin) {
+      throw new Error('Admin access required');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('role, organization_id')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData) {
-      return errorResponse('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    if (userData.role !== 'admin') {
-      return errorResponse('Forbidden: Admin access required', 403, 'FORBIDDEN');
-    }
-
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
-    const method = req.method;
 
-    if (method === 'GET') {
+    if (req.method === 'GET') {
       if (pathParts.length === 1) {
         const { data: roles, error } = await supabase
           .from('roles')
           .select('*')
-          .eq('organization_id', userData.organization_id)
+          .eq('organization_id', auth.organizationId)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         return successResponse(roles || []);
       }
 
@@ -111,7 +108,7 @@ Deno.serve(async (req: Request) => {
           `)
           .eq('role_id', roleId);
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
 
         const permissions = rolePermissions?.map(rp => (rp as any).permissions).filter(Boolean) || [];
         return successResponse(permissions);
@@ -120,187 +117,113 @@ Deno.serve(async (req: Request) => {
       if (pathParts[2] === 'users') {
         const { data: userRoles, error } = await supabase
           .from('user_roles')
-          .select('user_id')
+          .select(`
+            user_id,
+            users (
+              id,
+              email,
+              full_name,
+              is_active
+            )
+          `)
           .eq('role_id', roleId);
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
 
-        const userIds = userRoles?.map(ur => ur.user_id) || [];
-        return successResponse(userIds);
+        const users = userRoles?.map(ur => (ur as any).users).filter(Boolean) || [];
+        return successResponse(users);
       }
 
       const { data: role, error } = await supabase
         .from('roles')
-        .select(`
-          *,
-          role_permissions (
-            permission_id,
-            permissions (
-              id,
-              key,
-              resource,
-              action,
-              category,
-              display_order,
-              is_active
-            )
-          )
-        `)
+        .select('*')
         .eq('id', roleId)
-        .eq('organization_id', userData.organization_id)
-        .single();
+        .eq('organization_id', auth.organizationId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
+      if (!role) throw new Error('Role not found');
       return successResponse(role);
     }
 
-    if (method === 'POST') {
-      if (pathParts[1] === 'assign') {
-        const body = await req.json();
-        const { user_id, role_id } = body;
-
-        if (!user_id || !role_id) {
-          return errorResponse('user_id and role_id are required', 400, 'MISSING_FIELDS');
-        }
-
-        const { data: userRole, error } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id,
-            role_id,
-            assigned_by: user.id,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        return successResponse(userRole);
-      }
-
+    if (req.method === 'POST') {
       const body = await req.json();
-      const { key, permission_ids } = body;
 
-      if (!key) {
-        return errorResponse('Role key is required', 400, 'MISSING_FIELDS');
-      }
-
-      const { data: newRole, error: roleError } = await supabase
-        .from('roles')
-        .insert({
-          key,
-          organization_id: userData.organization_id,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (roleError) throw roleError;
-
-      if (permission_ids && permission_ids.length > 0) {
-        const rolePermissions = permission_ids.map((permId: string) => ({
-          role_id: newRole.id,
-          permission_id: permId,
-          granted_by: user.id,
-        }));
-
-        const { error: permError } = await supabase
-          .from('role_permissions')
-          .insert(rolePermissions);
-
-        if (permError) throw permError;
-      }
-
-      return successResponse(newRole);
-    }
-
-    if (method === 'PUT') {
-      const roleId = pathParts[1];
-
-      if (pathParts[2] === 'permissions') {
-        const body = await req.json();
+      if (pathParts[2] === 'permissions' && pathParts[1]) {
+        const roleId = pathParts[1];
         const { permission_ids } = body;
 
-        await supabase
+        const { error: deleteError } = await supabase
           .from('role_permissions')
           .delete()
           .eq('role_id', roleId);
 
+        if (deleteError) throw new Error(deleteError.message);
+
         if (permission_ids && permission_ids.length > 0) {
-          const rolePermissions = permission_ids.map((permId: string) => ({
+          const rolePermissions = permission_ids.map((permissionId: string) => ({
             role_id: roleId,
-            permission_id: permId,
-            granted_by: user.id,
+            permission_id: permissionId,
           }));
 
-          const { error } = await supabase
+          const { error: insertError } = await supabase
             .from('role_permissions')
             .insert(rolePermissions);
 
-          if (error) throw error;
+          if (insertError) throw new Error(insertError.message);
         }
 
-        return successResponse({ message: 'Permissions updated successfully' });
+        return successResponse({ success: true });
       }
 
-      const body = await req.json();
-
-      const { data: updatedRole, error } = await supabase
+      const { data: newRole, error } = await supabase
         .from('roles')
-        .update({
-          ...body,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', roleId)
-        .eq('organization_id', userData.organization_id)
+        .insert({ ...body, organization_id: auth.organizationId })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
+      return successResponse(newRole, 201);
+    }
+
+    if (req.method === 'PUT') {
+      const roleId = pathParts[1];
+      if (!roleId) throw new Error('Role ID required');
+
+      const body = await req.json();
+      const { organization_id, ...updateData } = body;
+
+      const { data: updatedRole, error } = await supabase
+        .from('roles')
+        .update(updateData)
+        .eq('id', roleId)
+        .eq('organization_id', auth.organizationId)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
       return successResponse(updatedRole);
     }
 
-    if (method === 'DELETE') {
-      if (pathParts[1] === 'assignments') {
-        const userRoleId = pathParts[2];
-
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('id', userRoleId);
-
-        if (error) throw error;
-        return successResponse({ message: 'Role assignment removed successfully' });
-      }
-
+    if (req.method === 'DELETE') {
       const roleId = pathParts[1];
-
-      const { data: role } = await supabase
-        .from('roles')
-        .select('is_system_role')
-        .eq('id', roleId)
-        .single();
-
-      if (role?.is_system_role) {
-        return errorResponse('Cannot delete system role', 400, 'SYSTEM_ROLE');
-      }
+      if (!roleId) throw new Error('Role ID required');
 
       const { error } = await supabase
         .from('roles')
         .delete()
         .eq('id', roleId)
-        .eq('organization_id', userData.organization_id);
+        .eq('organization_id', auth.organizationId)
+        .eq('is_system_role', false);
 
-      if (error) throw error;
-      return successResponse({ message: 'Role deleted successfully' });
+      if (error) throw new Error(error.message);
+      return successResponse({ success: true });
     }
 
-    return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
-  } catch (error) {
-    console.error('Error:', error);
-    return errorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
-      500,
-      'INTERNAL_ERROR'
-    );
+    throw new Error('Method not allowed');
+  } catch (err) {
+    console.error('Error in roles endpoint:', err);
+    const error = err as Error;
+    return errorResponse(error.message, 500, 'ERROR');
   }
 });

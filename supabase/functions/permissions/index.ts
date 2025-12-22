@@ -1,3 +1,4 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
@@ -9,35 +10,53 @@ const corsHeaders = {
 interface ApiResponse<T = any> {
   success: boolean;
   data: T | null;
-  error: {
-    code: string;
-    message: string;
-    details?: any;
-  } | null;
+  error: { code: string; message: string; details?: any } | null;
 }
 
-function successResponse<T>(data: T): Response {
-  const response: ApiResponse<T> = {
-    success: true,
-    data,
-    error: null,
-  };
-  return new Response(JSON.stringify(response), {
-    status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-function errorResponse(message: string, status = 400, code = 'ERROR', details?: any): Response {
-  const response: ApiResponse = {
-    success: false,
-    data: null,
-    error: { code, message, details },
-  };
+function successResponse<T>(data: T, status = 200): Response {
+  const response: ApiResponse<T> = { success: true, data, error: null };
   return new Response(JSON.stringify(response), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+function errorResponse(message: string, status = 400, code = 'ERROR'): Response {
+  const response: ApiResponse = { success: false, data: null, error: { code, message } };
+  return new Response(JSON.stringify(response), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function authenticateUser(req: Request, supabaseServiceKey: string, supabaseUrl: string) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) throw new Error('Invalid or expired token');
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('organization_id, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!profile || !profile.is_active) throw new Error('User profile not found or inactive');
+
+  const { data: userRoles } = await supabase
+    .rpc('get_user_roles', { p_user_id: user.id });
+
+  if (!userRoles || userRoles.length === 0) throw new Error('User has no active roles');
+
+  const isAdmin = userRoles[0].role.key === 'admin';
+
+  return { userId: user.id, organizationId: profile.organization_id, isAdmin };
 }
 
 Deno.serve(async (req: Request) => {
@@ -48,39 +67,17 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const auth = await authenticateUser(req, supabaseServiceKey, supabaseUrl);
+
+    if (!auth.isAdmin) {
+      throw new Error('Admin access required');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('role, organization_id')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData) {
-      return errorResponse('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    if (userData.role !== 'admin') {
-      return errorResponse('Forbidden: Admin access required', 403, 'FORBIDDEN');
-    }
-
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
-    const method = req.method;
 
-    if (method === 'GET') {
+    if (req.method === 'GET') {
       if (pathParts.length === 1) {
         const category = url.searchParams.get('category');
 
@@ -97,7 +94,7 @@ Deno.serve(async (req: Request) => {
 
         const { data: permissions, error } = await query;
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         return successResponse(permissions || []);
       }
 
@@ -106,7 +103,7 @@ Deno.serve(async (req: Request) => {
         const permissionKey = url.searchParams.get('permission');
 
         if (!userId || !permissionKey) {
-          return errorResponse('user_id and permission are required', 400, 'MISSING_PARAMS');
+          throw new Error('user_id and permission are required');
         }
 
         const { data, error } = await supabase.rpc('check_user_permission', {
@@ -114,18 +111,18 @@ Deno.serve(async (req: Request) => {
           p_permission_key: permissionKey,
         });
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         return successResponse({ has_permission: data });
       }
     }
 
-    if (method === 'POST') {
+    if (req.method === 'POST') {
       if (pathParts[1] === 'check-any') {
         const body = await req.json();
         const { user_id, permissions } = body;
 
         if (!user_id || !permissions || !Array.isArray(permissions)) {
-          return errorResponse('user_id and permissions array are required', 400, 'MISSING_FIELDS');
+          throw new Error('user_id and permissions array are required');
         }
 
         for (const perm of permissions) {
@@ -147,7 +144,7 @@ Deno.serve(async (req: Request) => {
         const { user_id, permission_id, is_granted, reason, expires_at } = body;
 
         if (!user_id || !permission_id || is_granted === undefined) {
-          return errorResponse('user_id, permission_id, and is_granted are required', 400, 'MISSING_FIELDS');
+          throw new Error('user_id, permission_id, and is_granted are required');
         }
 
         const { data: override, error } = await supabase
@@ -158,17 +155,17 @@ Deno.serve(async (req: Request) => {
             is_granted,
             reason,
             expires_at,
-            granted_by: user.id,
+            granted_by: auth.userId,
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         return successResponse(override);
       }
     }
 
-    if (method === 'DELETE') {
+    if (req.method === 'DELETE') {
       if (pathParts[1] === 'overrides') {
         const overrideId = pathParts[2];
 
@@ -177,18 +174,15 @@ Deno.serve(async (req: Request) => {
           .delete()
           .eq('id', overrideId);
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         return successResponse({ message: 'Permission override deleted successfully' });
       }
     }
 
-    return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
-  } catch (error) {
-    console.error('Error:', error);
-    return errorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
-      500,
-      'INTERNAL_ERROR'
-    );
+    throw new Error('Method not allowed');
+  } catch (err) {
+    console.error('Error in permissions endpoint:', err);
+    const error = err as Error;
+    return errorResponse(error.message, 500, 'ERROR');
   }
 });

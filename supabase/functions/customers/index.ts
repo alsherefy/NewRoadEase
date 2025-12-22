@@ -1,90 +1,168 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
-import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { validateCustomer, validateId, validatePagination, validateUUID } from "../_shared/utils/validation.ts";
-import { RESOURCES } from "../_shared/constants/resources.ts";
-import { CustomersService } from "./services/customers.service.ts";
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
+
+interface ApiResponse<T = any> {
+  success: boolean;
+  data: T | null;
+  error: { code: string; message: string; details?: any } | null;
+}
+
+function successResponse<T>(data: T, status = 200): Response {
+  const response: ApiResponse<T> = { success: true, data, error: null };
+  return new Response(JSON.stringify(response), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function errorResponse(message: string, status = 400, code = 'ERROR'): Response {
+  const response: ApiResponse = { success: false, data: null, error: { code, message } };
+  return new Response(JSON.stringify(response), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function authenticateUser(req: Request, supabaseServiceKey: string, supabaseUrl: string) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) throw new Error('Invalid or expired token');
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('organization_id, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!profile || !profile.is_active) throw new Error('User profile not found or inactive');
+
+  const { data: userRoles } = await supabase
+    .rpc('get_user_roles', { p_user_id: user.id });
+
+  if (!userRoles || userRoles.length === 0) throw new Error('User has no active roles');
+
+  const role = userRoles[0].role.key;
+  const isAdmin = role === 'admin';
+  const canEdit = isAdmin || role === 'customer_service' || role === 'receptionist';
+
+  return { userId: user.id, organizationId: profile.organization_id, isAdmin, canEdit, role };
+}
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return corsResponse();
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const user = await authenticateRequest(req);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const auth = await authenticateUser(req, supabaseServiceKey, supabaseUrl);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const pathParts = url.pathname.split("/").filter(Boolean);
-
-    const lastPart = pathParts[pathParts.length - 1];
-    const customerId = lastPart !== 'customers' ? lastPart : undefined;
-
-    const customersService = new CustomersService(user);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const customerId = pathParts[pathParts.length - 1] !== 'customers' ? pathParts[pathParts.length - 1] : undefined;
 
     switch (req.method) {
-      case "GET": {
-        allRoles(user);
-
+      case 'GET': {
         if (customerId) {
-          validateUUID(customerId, "Customer ID");
-          const customer = await customersService.getById(customerId);
-          return successResponse(customer);
+          const { data, error } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('id', customerId)
+            .eq('organization_id', auth.organizationId)
+            .maybeSingle();
+
+          if (error) throw new Error(error.message);
+          if (!data) throw new Error('Customer not found');
+          return successResponse(data);
         }
 
-        const pagination = validatePagination({
-          limit: url.searchParams.get("limit"),
-          offset: url.searchParams.get("offset"),
+        const limit = parseInt(url.searchParams.get('limit') || '50');
+        const offset = parseInt(url.searchParams.get('offset') || '0');
+
+        const { data, error, count } = await supabase
+          .from('customers')
+          .select('*', { count: 'exact' })
+          .eq('organization_id', auth.organizationId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+
+        if (error) throw new Error(error.message);
+
+        return successResponse({
+          data: data || [],
+          count: count || 0,
+          hasMore: offset + limit < (count || 0),
         });
-
-        const params = {
-          ...pagination,
-          orderBy: url.searchParams.get("orderBy") || undefined,
-          orderDir: url.searchParams.get("orderDir") || undefined,
-        };
-
-        const result = await customersService.getAll(params);
-        return successResponse(result);
       }
 
-      case "POST": {
-        adminAndCustomerService(user);
+      case 'POST': {
+        if (!auth.canEdit) throw new Error('Access denied');
 
-        const createData = await req.json();
-        validateCustomer(createData);
+        const body = await req.json();
+        const { data, error } = await supabase
+          .from('customers')
+          .insert({ ...body, organization_id: auth.organizationId })
+          .select()
+          .single();
 
-        const newCustomer = await customersService.create(createData);
-        return successResponse(newCustomer, 201);
+        if (error) throw new Error(error.message);
+        return successResponse(data, 201);
       }
 
-      case "PUT": {
-        adminAndCustomerService(user);
-        validateUUID(customerId, "Customer ID");
+      case 'PUT': {
+        if (!auth.canEdit) throw new Error('Access denied');
+        if (!customerId) throw new Error('Customer ID required');
 
-        await checkOwnership(user, RESOURCES.CUSTOMERS, customerId!);
+        const body = await req.json();
+        const { organization_id, ...updateData } = body;
 
-        const updateData = await req.json();
-        validateCustomer(updateData);
+        const { data, error } = await supabase
+          .from('customers')
+          .update(updateData)
+          .eq('id', customerId)
+          .eq('organization_id', auth.organizationId)
+          .select()
+          .single();
 
-        const updatedCustomer = await customersService.update(customerId!, updateData);
-        return successResponse(updatedCustomer);
+        if (error) throw new Error(error.message);
+        return successResponse(data);
       }
 
-      case "DELETE": {
-        adminOnly(user);
-        validateUUID(customerId, "Customer ID");
+      case 'DELETE': {
+        if (!auth.isAdmin) throw new Error('Admin access required');
+        if (!customerId) throw new Error('Customer ID required');
 
-        await checkOwnership(user, RESOURCES.CUSTOMERS, customerId!);
+        const { error } = await supabase
+          .from('customers')
+          .delete()
+          .eq('id', customerId)
+          .eq('organization_id', auth.organizationId);
 
-        await customersService.delete(customerId!);
+        if (error) throw new Error(error.message);
         return successResponse({ deleted: true });
       }
 
       default:
-        return errorResponse(new Error("Method not allowed"), 405);
+        throw new Error('Method not allowed');
     }
-  } catch (error) {
-    console.error("Error in customers endpoint:", error);
-    return errorResponse(error as Error);
+  } catch (err) {
+    console.error('Error in customers endpoint:', err);
+    const error = err as Error;
+    return errorResponse(error.message, 500, 'ERROR');
   }
 });
