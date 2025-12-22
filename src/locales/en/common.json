@@ -884,6 +884,10 @@
         "name": "Update Settings",
         "description": "Ability to update workshop settings"
       },
+      "settings.manage_workshop": {
+        "name": "Manage Workshop",
+        "description": "Ability to manage workshop configuration and preferences"
+      },
       "users.view": {
         "name": "View Users",
         "description": "Ability to view users list"
