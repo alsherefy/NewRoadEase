@@ -43,22 +43,36 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
   async function loadPermissions() {
     try {
-      const { data, error } = await supabase
-        .from('user_permissions')
-        .select('*')
-        .eq('user_id', user.id);
+      const { data: allPermsData, error: permsError } = await supabase
+        .from('permissions')
+        .select('id, key')
+        .eq('is_active', true);
 
-      if (error) throw error;
+      if (permsError) throw permsError;
 
-      const existingPermissions = new Map(
-        data?.map(p => [p.permission_key, { can_view: p.can_view, can_edit: p.can_edit }]) || []
+      const permissionMap = new Map(allPermsData?.map(p => [p.key, p.id]) || []);
+
+      const { data: overridesData, error: overridesError } = await supabase
+        .from('user_permission_overrides')
+        .select('permission_id, is_granted')
+        .eq('user_id', user.id)
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+
+      if (overridesError) throw overridesError;
+
+      const overridesMap = new Map(
+        overridesData?.map(o => [o.permission_id, o.is_granted]) || []
       );
 
-      const allPermissions = availablePermissions.map(p => ({
-        key: p.key,
-        can_view: existingPermissions.get(p.key)?.can_view || false,
-        can_edit: existingPermissions.get(p.key)?.can_edit || false,
-      }));
+      const allPermissions = availablePermissions.map(p => {
+        const permissionId = permissionMap.get(p.key);
+        const override = permissionId ? overridesMap.get(permissionId) : undefined;
+        return {
+          key: p.key,
+          can_view: override !== undefined ? override : false,
+          can_edit: override !== undefined ? override : false,
+        };
+      });
 
       setPermissions(allPermissions);
     } catch (error) {
@@ -92,24 +106,44 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
   async function handleSave() {
     setSaving(true);
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        throw new Error('No active session');
+      }
+
+      const { data: allPermsData, error: permsError } = await supabase
+        .from('permissions')
+        .select('id, key')
+        .eq('is_active', true);
+
+      if (permsError) throw permsError;
+
+      const permissionMap = new Map(allPermsData?.map(p => [p.key, p.id]) || []);
+
       await supabase
-        .from('user_permissions')
+        .from('user_permission_overrides')
         .delete()
         .eq('user_id', user.id);
 
-      const permissionsToInsert = permissions
+      const overridesToInsert = permissions
         .filter(p => p.can_view || p.can_edit)
-        .map(p => ({
-          user_id: user.id,
-          permission_key: p.key,
-          can_view: p.can_view,
-          can_edit: p.can_edit,
-        }));
+        .map(p => {
+          const permissionId = permissionMap.get(p.key);
+          if (!permissionId) return null;
+          return {
+            user_id: user.id,
+            permission_id: permissionId,
+            is_granted: true,
+            granted_by: session.session.user.id,
+            reason: 'Custom permission override'
+          };
+        })
+        .filter(Boolean);
 
-      if (permissionsToInsert.length > 0) {
+      if (overridesToInsert.length > 0) {
         const { error } = await supabase
-          .from('user_permissions')
-          .insert(permissionsToInsert);
+          .from('user_permission_overrides')
+          .insert(overridesToInsert);
 
         if (error) throw error;
       }

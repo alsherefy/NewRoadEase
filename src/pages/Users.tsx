@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { UserPermissionsManager } from '../components/UserPermissionsManager';
 import RolesManagement from './RolesManagement';
 import AuditLogs from './AuditLogs';
 
@@ -46,6 +47,7 @@ export function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [passwordFormData, setPasswordFormData] = useState({
     user_id: '',
     new_password: '',
@@ -147,6 +149,20 @@ export function Users() {
     } catch (error) {
       console.error('Error toggling user status:', error);
     }
+  }
+
+  function openPermissionsModal(user: User) {
+    setSelectedUser(user);
+    setShowPermissionsModal(true);
+  }
+
+  function closePermissionsModal() {
+    setShowPermissionsModal(false);
+    setSelectedUser(null);
+  }
+
+  async function handlePermissionsSaved() {
+    await loadUsers();
   }
 
   function openPasswordModal(user: User) {
@@ -392,6 +408,16 @@ export function Users() {
                 {t('users.edit_role')}
               </button>
 
+              {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
+                <button
+                  onClick={() => openPermissionsModal(user)}
+                  className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  {t('users.manage_permissions')}
+                </button>
+              )}
+
               <div className="flex gap-2">
                 <button
                   onClick={() => handleDelete(user.id)}
@@ -503,6 +529,14 @@ export function Users() {
               </form>
             </div>
           </div>
+        )}
+
+        {showPermissionsModal && selectedUser && (
+          <UserPermissionsManager
+            user={selectedUser}
+            onClose={closePermissionsModal}
+            onSave={handlePermissionsSaved}
+          />
         )}
 
         {showPasswordModal && selectedUser && (

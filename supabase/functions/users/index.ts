@@ -185,15 +185,61 @@ Deno.serve(async (req: Request) => {
         if (!userId) throw new Error('User ID required');
 
         const body = await req.json();
-        const { data, error } = await supabase
+
+        if (body.role) {
+          const roleKey = body.role;
+          delete body.role;
+
+          const { data: roleData, error: roleError } = await supabase
+            .from('roles')
+            .select('id')
+            .eq('organization_id', auth.organizationId)
+            .eq('key', roleKey)
+            .eq('is_system_role', true)
+            .maybeSingle();
+
+          if (roleError || !roleData) {
+            throw new Error('Role not found');
+          }
+
+          const { error: deleteRoleError } = await supabase
+            .from('user_roles')
+            .delete()
+            .eq('user_id', userId);
+
+          if (deleteRoleError) throw new Error(deleteRoleError.message);
+
+          const { error: insertRoleError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: userId,
+              role_id: roleData.id,
+            });
+
+          if (insertRoleError) throw new Error(insertRoleError.message);
+        }
+
+        if (Object.keys(body).length > 0) {
+          const { error } = await supabase
+            .from('users')
+            .update(body)
+            .eq('id', userId);
+
+          if (error) throw new Error(error.message);
+        }
+
+        const { data: updatedUser, error: fetchError } = await supabase
           .from('users')
-          .update(body)
+          .select('*')
           .eq('id', userId)
-          .select()
           .single();
 
-        if (error) throw new Error(error.message);
-        return successResponse(data);
+        if (fetchError) throw new Error(fetchError.message);
+
+        const { data: userRoles } = await supabase
+          .rpc('get_user_roles', { p_user_id: userId });
+
+        return successResponse({ ...updatedUser, user_roles: userRoles || [] });
       }
 
       case 'DELETE': {

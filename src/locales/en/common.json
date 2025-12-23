@@ -47,7 +47,7 @@
     "reports": "Performance Reports",
     "settings": "Settings",
     "users": "Users",
-    "rolesManagement": "Roles Management",
+    "rolesManagement": "Permissions Management",
     "permissionsOverview": "Permissions Overview",
     "auditLogs": "Audit Logs"
   },
