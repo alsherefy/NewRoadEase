@@ -45,15 +45,16 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
       });
 
       if (resetPage) {
-        setOrders(result.data);
+        setOrders(result.data || []);
         setPage(0);
       } else {
-        setOrders(prev => currentPage === 0 ? result.data : [...prev, ...result.data]);
+        setOrders(prev => currentPage === 0 ? (result.data || []) : [...prev, ...(result.data || [])]);
       }
 
       setHasMore(result.hasMore);
     } catch (error) {
       console.error('Error loading work orders:', error);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
