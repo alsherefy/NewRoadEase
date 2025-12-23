@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usersService } from '../services';
 import { supabase } from '../lib/supabase';
-import { User, UserPermission, PermissionKey } from '../types';
+import { User } from '../types';
 import {
   Users as UsersIcon,
   UserPlus,
@@ -15,21 +15,14 @@ import {
   Loader,
   Key,
   FileText,
-  Lock,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { UserPermissionsManager } from '../components/UserPermissionsManager';
 import RolesManagement from './RolesManagement';
-import PermissionsOverview from './PermissionsOverview';
 import AuditLogs from './AuditLogs';
 
-interface UserWithPerms extends User {
-  permissions?: UserPermission[];
-}
-
-type TabType = 'users' | 'roles' | 'permissions' | 'audit';
+type TabType = 'users' | 'roles' | 'audit';
 
 function getUserPrimaryRole(user: User): 'admin' | 'customer_service' | 'receptionist' {
   if (user.user_roles && user.user_roles.length > 0) {
@@ -47,12 +40,11 @@ export function Users() {
   const toast = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const [activeTab, setActiveTab] = useState<TabType>('users');
-  const [users, setUsers] = useState<UserWithPerms[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserWithPerms | null>(null);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserWithPerms | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordFormData, setPasswordFormData] = useState({
     user_id: '',
@@ -72,32 +64,6 @@ export function Users() {
     role: 'receptionist' as 'admin' | 'customer_service' | 'receptionist',
   });
 
-  const PERMISSION_LABELS: Record<PermissionKey, string> = {
-    dashboard: t('permissions.dashboard'),
-    customers: t('permissions.customers'),
-    work_orders: t('permissions.work_orders'),
-    invoices: t('permissions.invoices'),
-    inventory: t('permissions.inventory'),
-    technicians: t('permissions.technicians'),
-    reports: t('permissions.reports'),
-    settings: t('permissions.settings'),
-    users: t('permissions.users'),
-  };
-
-  const [permissionsData, setPermissionsData] = useState<
-    Record<PermissionKey, { can_view: boolean; can_edit: boolean }>
-  >({
-    dashboard: { can_view: false, can_edit: false },
-    customers: { can_view: false, can_edit: false },
-    work_orders: { can_view: false, can_edit: false },
-    invoices: { can_view: false, can_edit: false },
-    inventory: { can_view: false, can_edit: false },
-    technicians: { can_view: false, can_edit: false },
-    reports: { can_view: false, can_edit: false },
-    settings: { can_view: false, can_edit: false },
-    users: { can_view: false, can_edit: false },
-  });
-
   useEffect(() => {
     if (isAdmin()) {
       loadUsers();
@@ -107,7 +73,7 @@ export function Users() {
   async function loadUsers() {
     try {
       const data = await usersService.getAllUsers();
-      setUsers(data as UserWithPerms[]);
+      setUsers(data as User[]);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {
@@ -183,43 +149,7 @@ export function Users() {
     }
   }
 
-  function openPermissionsModal(user: UserWithPerms) {
-    setSelectedUser(user);
-    setShowPermissionsModal(true);
-  }
-
-  function closePermissionsModal() {
-    setShowPermissionsModal(false);
-    setSelectedUser(null);
-  }
-
-  async function handlePermissionsSaved() {
-    await loadUsers();
-  }
-
-  async function savePermissions() {
-    if (!selectedUser) return;
-    setLoading(true);
-
-    try {
-      const permissionsToSave = Object.entries(permissionsData).map(([key, value]) => ({
-        permission_key: key,
-        can_view: value.can_view,
-        can_edit: value.can_edit,
-      }));
-
-      await usersService.updatePermissions(selectedUser.id, permissionsToSave);
-      await loadUsers();
-      setShowPermissionsModal(false);
-    } catch (error) {
-      console.error('Error saving permissions:', error);
-      toast.error(t('users.error_save_permissions'));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function openPasswordModal(user: UserWithPerms) {
+  function openPasswordModal(user: User) {
     setSelectedUser(user);
     setPasswordFormData({
       user_id: user.id,
@@ -285,7 +215,7 @@ export function Users() {
     }
   }
 
-  function openRoleModal(user: UserWithPerms) {
+  function openRoleModal(user: User) {
     setSelectedUser(user);
     setRoleFormData({
       user_id: user.id,
@@ -335,7 +265,6 @@ export function Users() {
   const tabs = [
     { id: 'users' as TabType, label: t('nav.users'), icon: UsersIcon },
     { id: 'roles' as TabType, label: t('nav.rolesManagement'), icon: Shield },
-    { id: 'permissions' as TabType, label: t('nav.permissionsOverview'), icon: Lock },
     { id: 'audit' as TabType, label: t('nav.auditLogs'), icon: FileText },
   ];
 
@@ -345,8 +274,6 @@ export function Users() {
         return renderUsersTab();
       case 'roles':
         return <RolesManagement />;
-      case 'permissions':
-        return <PermissionsOverview />;
       case 'audit':
         return <AuditLogs />;
       default:
@@ -448,16 +375,6 @@ export function Users() {
                   </span>
                 </div>
               </div>
-
-              {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
-                <button
-                  onClick={() => openPermissionsModal(user)}
-                  className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
-                >
-                  <Shield className="h-4 w-4" />
-                  {t('users.manage_permissions')}
-                </button>
-              )}
 
               <button
                 onClick={() => openPasswordModal(user)}
@@ -586,14 +503,6 @@ export function Users() {
               </form>
             </div>
           </div>
-        )}
-
-        {showPermissionsModal && selectedUser && (
-          <UserPermissionsManager
-            user={selectedUser}
-            onClose={closePermissionsModal}
-            onSave={handlePermissionsSaved}
-          />
         )}
 
         {showPasswordModal && selectedUser && (
