@@ -84,8 +84,7 @@ Deno.serve(async (req: Request) => {
             .select(`
               *,
               customer:customers(*),
-              vehicle:vehicles(*),
-              technician:technicians(*)
+              vehicle:vehicles(*)
             `)
             .eq('id', workOrderId)
             .eq('organization_id', auth.organizationId)
@@ -101,8 +100,7 @@ Deno.serve(async (req: Request) => {
           .select(`
             *,
             customer:customers(id, name, phone),
-            vehicle:vehicles(id, make, model, year, license_plate),
-            technician:technicians(id, name)
+            vehicle:vehicles(id, car_make, car_model, car_year, plate_number)
           `)
           .eq('organization_id', auth.organizationId)
           .order('created_at', { ascending: false });
@@ -121,8 +119,7 @@ Deno.serve(async (req: Request) => {
           .select(`
             *,
             customer:customers(*),
-            vehicle:vehicles(*),
-            technician:technicians(*)
+            vehicle:vehicles(*)
           `)
           .single();
 
@@ -145,8 +142,7 @@ Deno.serve(async (req: Request) => {
           .select(`
             *,
             customer:customers(*),
-            vehicle:vehicles(*),
-            technician:technicians(*)
+            vehicle:vehicles(*)
           `)
           .single();
 
