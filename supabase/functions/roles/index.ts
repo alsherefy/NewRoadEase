@@ -194,6 +194,33 @@ Deno.serve(async (req: Request) => {
       if (!roleId) throw new Error('Role ID required');
 
       const body = await req.json();
+
+      if (pathParts[2] === 'permissions') {
+        const { permission_ids } = body;
+
+        const { error: deleteError } = await supabase
+          .from('role_permissions')
+          .delete()
+          .eq('role_id', roleId);
+
+        if (deleteError) throw new Error(deleteError.message);
+
+        if (permission_ids && permission_ids.length > 0) {
+          const rolePermissions = permission_ids.map((permissionId: string) => ({
+            role_id: roleId,
+            permission_id: permissionId,
+          }));
+
+          const { error: insertError } = await supabase
+            .from('role_permissions')
+            .insert(rolePermissions);
+
+          if (insertError) throw new Error(insertError.message);
+        }
+
+        return successResponse({ success: true });
+      }
+
       const { organization_id, ...updateData } = body;
 
       const { data: updatedRole, error } = await supabase
