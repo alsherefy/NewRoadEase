@@ -952,9 +952,33 @@
     },
     "categories": {
       "general": "عام",
+      "operations": "العمليات",
       "financial": "مالي",
       "reports": "تقارير",
+      "administration": "الإدارة",
       "system": "إدارة النظام"
+    },
+    "details": {
+      "invoices": {
+        "void": {
+          "name": "إلغاء فاتورة"
+        }
+      },
+      "expenses": {
+        "approve": {
+          "name": "اعتماد مصروف"
+        }
+      },
+      "salaries": {
+        "approve": {
+          "name": "اعتماد راتب"
+        }
+      },
+      "reports": {
+        "performance": {
+          "name": "تقرير الأداء"
+        }
+      }
     }
   },
   "common": {

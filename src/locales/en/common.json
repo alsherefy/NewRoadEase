@@ -952,9 +952,33 @@
     },
     "categories": {
       "general": "General",
+      "operations": "Operations",
       "financial": "Financial",
       "reports": "Reports",
+      "administration": "Administration",
       "system": "System Administration"
+    },
+    "details": {
+      "invoices": {
+        "void": {
+          "name": "Void Invoice"
+        }
+      },
+      "expenses": {
+        "approve": {
+          "name": "Approve Expense"
+        }
+      },
+      "salaries": {
+        "approve": {
+          "name": "Approve Salary"
+        }
+      },
+      "reports": {
+        "performance": {
+          "name": "Performance Report"
+        }
+      }
     }
   },
   "common": {
