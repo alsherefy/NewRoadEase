@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { User, UserPermission, PermissionKey } from '../types';
-import { Shield, Check, X, Save } from 'lucide-react';
+import { User } from '../types';
+import { Shield, X, Save } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { translatePermission } from '../utils/translationHelpers';
 
 interface UserPermissionsManagerProps {
   user: User;
@@ -11,10 +12,14 @@ interface UserPermissionsManagerProps {
   onSave: () => void;
 }
 
-interface PermissionState {
-  key: PermissionKey;
-  can_view: boolean;
-  can_edit: boolean;
+interface Permission {
+  id: string;
+  key: string;
+  resource: string;
+  action: string;
+  category: string;
+  display_order: number;
+  is_active: boolean;
 }
 
 export function UserPermissionsManager({ user, onClose, onSave }: UserPermissionsManagerProps) {
@@ -22,20 +27,8 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [permissions, setPermissions] = useState<PermissionState[]>([]);
-
-  const availablePermissions: { key: PermissionKey; label: string }[] = [
-    { key: 'dashboard', label: t('permissions.dashboard') },
-    { key: 'customers', label: t('permissions.customers') },
-    { key: 'work_orders', label: t('permissions.work_orders') },
-    { key: 'invoices', label: t('permissions.invoices') },
-    { key: 'inventory', label: t('permissions.inventory') },
-    { key: 'expenses', label: t('permissions.expenses') },
-    { key: 'salaries', label: t('permissions.salaries') },
-    { key: 'technicians', label: t('permissions.technicians') },
-    { key: 'reports', label: t('permissions.reports') },
-    { key: 'users', label: t('permissions.users') },
-  ];
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadPermissions();
@@ -45,12 +38,14 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
     try {
       const { data: allPermsData, error: permsError } = await supabase
         .from('permissions')
-        .select('id, key')
-        .eq('is_active', true);
+        .select('*')
+        .eq('is_active', true)
+        .order('category')
+        .order('display_order');
 
       if (permsError) throw permsError;
 
-      const permissionMap = new Map(allPermsData?.map(p => [p.key, p.id]) || []);
+      setPermissions(allPermsData || []);
 
       const { data: overridesData, error: overridesError } = await supabase
         .from('user_permission_overrides')
@@ -60,21 +55,11 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
       if (overridesError) throw overridesError;
 
-      const overridesMap = new Map(
-        overridesData?.map(o => [o.permission_id, o.is_granted]) || []
-      );
+      const grantedPermissionIds = overridesData
+        ?.filter(o => o.is_granted)
+        .map(o => o.permission_id) || [];
 
-      const allPermissions = availablePermissions.map(p => {
-        const permissionId = permissionMap.get(p.key);
-        const override = permissionId ? overridesMap.get(permissionId) : undefined;
-        return {
-          key: p.key,
-          can_view: override !== undefined ? override : false,
-          can_edit: override !== undefined ? override : false,
-        };
-      });
-
-      setPermissions(allPermissions);
+      setSelectedPermissionIds(grantedPermissionIds);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast.error(t('permissions.error_loading'));
@@ -83,24 +68,24 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
     }
   }
 
-  function toggleView(key: PermissionKey) {
-    setPermissions(prev =>
-      prev.map(p =>
-        p.key === key
-          ? { ...p, can_view: !p.can_view, can_edit: !p.can_view ? false : p.can_edit }
-          : p
-      )
+  function togglePermission(permissionId: string) {
+    setSelectedPermissionIds(prev =>
+      prev.includes(permissionId)
+        ? prev.filter(id => id !== permissionId)
+        : [...prev, permissionId]
     );
   }
 
-  function toggleEdit(key: PermissionKey) {
-    setPermissions(prev =>
-      prev.map(p =>
-        p.key === key
-          ? { ...p, can_edit: !p.can_edit, can_view: !p.can_edit ? true : p.can_view }
-          : p
-      )
-    );
+  function groupPermissionsByCategory() {
+    const grouped: Record<string, Permission[]> = {};
+    permissions.forEach(permission => {
+      const category = permission.category || 'other';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(permission);
+    });
+    return grouped;
   }
 
   async function handleSave() {
@@ -111,36 +96,20 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
         throw new Error('No active session');
       }
 
-      const { data: allPermsData, error: permsError } = await supabase
-        .from('permissions')
-        .select('id, key')
-        .eq('is_active', true);
-
-      if (permsError) throw permsError;
-
-      const permissionMap = new Map(allPermsData?.map(p => [p.key, p.id]) || []);
-
       await supabase
         .from('user_permission_overrides')
         .delete()
         .eq('user_id', user.id);
 
-      const overridesToInsert = permissions
-        .filter(p => p.can_view || p.can_edit)
-        .map(p => {
-          const permissionId = permissionMap.get(p.key);
-          if (!permissionId) return null;
-          return {
-            user_id: user.id,
-            permission_id: permissionId,
-            is_granted: true,
-            granted_by: session.session.user.id,
-            reason: 'Custom permission override'
-          };
-        })
-        .filter(Boolean);
+      if (selectedPermissionIds.length > 0) {
+        const overridesToInsert = selectedPermissionIds.map(permissionId => ({
+          user_id: user.id,
+          permission_id: permissionId,
+          is_granted: true,
+          granted_by: session.session.user.id,
+          reason: 'Custom permission override'
+        }));
 
-      if (overridesToInsert.length > 0) {
         const { error } = await supabase
           .from('user_permission_overrides')
           .insert(overridesToInsert);
@@ -171,31 +140,30 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3 space-x-reverse">
-            <Shield className="h-6 w-6 text-blue-600" />
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">
-                {t('permissions.manage_permissions')}
-              </h2>
-              <p className="text-sm text-gray-600">{user.full_name} ({user.email})</p>
-            </div>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {t('permissions.manage_permissions')}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {user.full_name} - {user.email}
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <X className="h-6 w-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+        <div className="p-6 bg-blue-50 border-b border-blue-100">
           <p className="text-sm text-blue-800">
             {t('permissions.role_info')}: <span className="font-semibold">
               {user.user_roles && user.user_roles.length > 0
-                ? t(`roles.${user.user_roles[0].role?.key}`)
-                : t('roles.receptionist')}
+                ? user.user_roles[0].role?.name
+                : t('roles.receptionist.name')}
             </span>
           </p>
           <p className="text-xs text-blue-600 mt-1">
@@ -203,63 +171,64 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
           </p>
         </div>
 
-        <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-4 pb-2 border-b border-gray-200">
-            <div className="text-sm font-semibold text-gray-700">{t('permissions.permission')}</div>
-            <div className="text-sm font-semibold text-gray-700 text-center">{t('permissions.can_view')}</div>
-            <div className="text-sm font-semibold text-gray-700 text-center">{t('permissions.can_edit')}</div>
-          </div>
-
-          {availablePermissions.map(perm => {
-            const state = permissions.find(p => p.key === perm.key);
-            return (
-              <div key={perm.key} className="grid grid-cols-3 gap-4 py-3 border-b border-gray-100 hover:bg-gray-50">
-                <div className="text-sm text-gray-800">{perm.label}</div>
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => toggleView(perm.key)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      state?.can_view
-                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                    }`}
-                  >
-                    {state?.can_view ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
-                  </button>
-                </div>
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => toggleEdit(perm.key)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      state?.can_edit
-                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                    }`}
-                  >
-                    {state?.can_edit ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
-                  </button>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-220px)]">
+          <div className="space-y-6">
+            {Object.entries(groupPermissionsByCategory()).map(([category, perms]) => (
+              <div key={category} className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider">
+                  {t(`permissions.categories.${category}`)}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {perms
+                    .sort((a, b) => a.display_order - b.display_order)
+                    .map((permission) => (
+                      <label
+                        key={permission.id}
+                        className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-green-400 hover:shadow-md cursor-pointer transition-all group"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPermissionIds.includes(permission.id)}
+                          onChange={() => togglePermission(permission.id)}
+                          className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
+                            {translatePermission(permission.key, t)}
+                          </div>
+                        </div>
+                        {selectedPermissionIds.includes(permission.id) && (
+                          <div className="flex-shrink-0 w-2 h-2 bg-green-600 rounded-full"></div>
+                        )}
+                      </label>
+                    ))}
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 flex items-center justify-center space-x-2 space-x-reverse bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            <Save className="h-5 w-5" />
-            <span>{saving ? t('common.saving') : t('common.save')}</span>
-          </button>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            {t('common.cancel')}
-          </button>
+        <div className="p-6 border-t border-gray-200 flex gap-3 justify-between">
+          <div className="text-sm text-gray-600">
+            {t('admin.roles.selectedPermissions')}: <span className="font-semibold">{selectedPermissionIds.length}</span>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? t('common.saving') : t('common.save')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

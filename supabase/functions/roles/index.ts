@@ -117,21 +117,24 @@ Deno.serve(async (req: Request) => {
       if (pathParts[2] === 'users') {
         const { data: userRoles, error } = await supabase
           .from('user_roles')
-          .select(`
-            user_id,
-            users (
-              id,
-              email,
-              full_name,
-              is_active
-            )
-          `)
+          .select('user_id')
           .eq('role_id', roleId);
 
         if (error) throw new Error(error.message);
 
-        const users = userRoles?.map(ur => (ur as any).users).filter(Boolean) || [];
-        return successResponse(users);
+        const userIds = userRoles?.map(ur => ur.user_id) || [];
+
+        if (userIds.length === 0) {
+          return successResponse([]);
+        }
+
+        const { data: users, error: usersError } = await supabase
+          .from('users')
+          .select('id, email, full_name, is_active')
+          .in('id', userIds);
+
+        if (usersError) throw new Error(usersError.message);
+        return successResponse(users || []);
       }
 
       const { data: role, error } = await supabase

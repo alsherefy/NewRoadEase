@@ -195,11 +195,10 @@ Deno.serve(async (req: Request) => {
             .select('id')
             .eq('organization_id', auth.organizationId)
             .eq('key', roleKey)
-            .eq('is_system_role', true)
             .maybeSingle();
 
           if (roleError || !roleData) {
-            throw new Error('Role not found');
+            throw new Error('Role not found: ' + roleKey);
           }
 
           const { error: deleteRoleError } = await supabase
