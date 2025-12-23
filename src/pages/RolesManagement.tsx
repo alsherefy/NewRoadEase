@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Shield, Plus, Edit2, Trash2, Users, Lock, Settings as SettingsIcon, Save, X } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, Users, Lock, Settings as SettingsIcon, Save, X, CheckSquare, Square, MinusSquare } from 'lucide-react';
 import { rolesService } from '../services/rolesService';
 import { permissionsService } from '../services/permissionsService';
 import { translateRole, getRoleColor, getRoleBgColor, translatePermission } from '../utils/translationHelpers';
@@ -148,16 +148,64 @@ export default function RolesManagement() {
     );
   };
 
-  const groupPermissionsByCategory = () => {
+  const groupPermissionsByResource = () => {
     const grouped: Record<string, Permission[]> = {};
     permissions.forEach(permission => {
-      const category = permission.category || 'other';
-      if (!grouped[category]) {
-        grouped[category] = [];
+      const resource = permission.resource || 'other';
+      if (!grouped[resource]) {
+        grouped[resource] = [];
       }
-      grouped[category].push(permission);
+      grouped[resource].push(permission);
     });
     return grouped;
+  };
+
+  const isResourceFullySelected = (resourcePermissions: Permission[]): boolean => {
+    return resourcePermissions.length > 0 && resourcePermissions.every(p => selectedPermissionIds.includes(p.id));
+  };
+
+  const isResourcePartiallySelected = (resourcePermissions: Permission[]): boolean => {
+    const selectedCount = resourcePermissions.filter(p => selectedPermissionIds.includes(p.id)).length;
+    return selectedCount > 0 && selectedCount < resourcePermissions.length;
+  };
+
+  const toggleAllResourcePermissions = (resourcePermissions: Permission[]) => {
+    const allSelected = isResourceFullySelected(resourcePermissions);
+    const permissionIds = resourcePermissions.map(p => p.id);
+
+    if (allSelected) {
+      setSelectedPermissionIds(prev => prev.filter(id => !permissionIds.includes(id)));
+    } else {
+      setSelectedPermissionIds(prev => {
+        const newIds = [...prev];
+        permissionIds.forEach(id => {
+          if (!newIds.includes(id)) {
+            newIds.push(id);
+          }
+        });
+        return newIds;
+      });
+    }
+  };
+
+  const getResourceDisplayName = (resource: string): string => {
+    const resourceNameMap: Record<string, string> = {
+      dashboard: 'لوحة التحكم',
+      customers: 'العملاء',
+      vehicles: 'المركبات',
+      work_orders: 'أوامر العمل',
+      invoices: 'الفواتير',
+      inventory: 'المخزون',
+      expenses: 'المصروفات',
+      salaries: 'الرواتب',
+      technicians: 'الفنيين',
+      reports: 'التقارير',
+      users: 'المستخدمين',
+      roles: 'الأدوار',
+      settings: 'الإعدادات',
+      audit_logs: 'سجلات المراجعة',
+    };
+    return resourceNameMap[resource] || resource;
   };
 
   if (loading) {
@@ -322,86 +370,147 @@ export default function RolesManagement() {
         </div>
       )}
 
-      {showPermissionsModal && selectedRole && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {t('admin.roles.managePermissions')}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {translateRole(selectedRole.key as any, t)}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPermissionsModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {showPermissionsModal && selectedRole && (() => {
+        const groupedPermissions = groupPermissionsByResource();
+        const sortedResources = Object.keys(groupedPermissions).sort((a, b) => {
+          const orderMap: Record<string, number> = {
+            dashboard: 1,
+            customers: 2,
+            vehicles: 3,
+            work_orders: 4,
+            invoices: 5,
+            inventory: 6,
+            expenses: 7,
+            salaries: 8,
+            technicians: 9,
+            reports: 10,
+            users: 11,
+            roles: 12,
+            settings: 13,
+            audit_logs: 14,
+          };
+          return (orderMap[a] || 999) - (orderMap[b] || 999);
+        });
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="space-y-6">
-                {Object.entries(groupPermissionsByCategory()).map(([category, perms]) => (
-                  <div key={category} className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider">
-                      {t(`permissions.categories.${category}`)}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {perms
-                        .sort((a, b) => a.display_order - b.display_order)
-                        .map((permission) => (
-                          <label
-                            key={permission.id}
-                            className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-400 hover:shadow-md cursor-pointer transition-all group"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedPermissionIds.includes(permission.id)}
-                              onChange={() => togglePermission(permission.id)}
-                              className="w-5 h-5 text-orange-600 rounded focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                            />
-                            <div className="flex-1">
-                              <div className="text-sm font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">
-                                {translatePermission(permission.key, t)}
-                              </div>
-                            </div>
-                            {selectedPermissionIds.includes(permission.id) && (
-                              <div className="flex-shrink-0 w-2 h-2 bg-orange-600 rounded-full"></div>
-                            )}
-                          </label>
-                        ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-200 flex gap-3 justify-between">
-              <div className="text-sm text-gray-600">
-                {t('admin.roles.selectedPermissions')}: <span className="font-semibold">{selectedPermissionIds.length}</span>
-              </div>
-              <div className="flex gap-3">
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {t('admin.roles.managePermissions')}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {translateRole(selectedRole.key as any, t)}
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowPermissionsModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  {t('common.cancel')}
+                  <X className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={handleSavePermissions}
-                  className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {t('common.save')}
-                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-240px)]">
+                <div className="space-y-4">
+                  {sortedResources.map((resource) => {
+                    const resourcePermissions = groupedPermissions[resource];
+                    const isFullySelected = isResourceFullySelected(resourcePermissions);
+                    const isPartiallySelected = isResourcePartiallySelected(resourcePermissions);
+
+                    return (
+                      <div key={resource} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                        <div
+                          onClick={() => toggleAllResourcePermissions(resourcePermissions)}
+                          className="bg-gradient-to-r from-orange-50 to-amber-50 p-4 cursor-pointer hover:from-orange-100 hover:to-amber-100 transition-all border-b border-gray-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            {isFullySelected ? (
+                              <CheckSquare className="w-6 h-6 text-orange-600" />
+                            ) : isPartiallySelected ? (
+                              <MinusSquare className="w-6 h-6 text-orange-500" />
+                            ) : (
+                              <Square className="w-6 h-6 text-gray-400" />
+                            )}
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-gray-900">
+                                {getResourceDisplayName(resource)}
+                              </h3>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {resourcePermissions.filter(p => selectedPermissionIds.includes(p.id)).length} / {resourcePermissions.length} محددة
+                              </p>
+                            </div>
+                            {isFullySelected && (
+                              <div className="px-3 py-1 bg-orange-600 text-white text-xs font-semibold rounded-full">
+                                الكل
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-gray-50">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {resourcePermissions
+                              .sort((a, b) => a.display_order - b.display_order)
+                              .map((permission) => (
+                                <label
+                                  key={permission.id}
+                                  className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-400 hover:shadow-md cursor-pointer transition-all group"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedPermissionIds.includes(permission.id)}
+                                    onChange={() => togglePermission(permission.id)}
+                                    className="w-4 h-4 text-orange-600 rounded focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-900 group-hover:text-orange-600 transition-colors">
+                                      {translatePermission(permission.key, t)}
+                                    </div>
+                                  </div>
+                                  {selectedPermissionIds.includes(permission.id) && (
+                                    <div className="flex-shrink-0 w-2 h-2 bg-orange-600 rounded-full"></div>
+                                  )}
+                                </label>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3 justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-semibold text-gray-900">{selectedPermissionIds.length}</span> صلاحية محددة
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    من أصل {permissions.length} صلاحية
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPermissionsModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={handleSavePermissions}
+                    className="px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center gap-2 shadow-md hover:shadow-lg"
+                  >
+                    <Save className="w-4 h-4" />
+                    {t('common.save')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

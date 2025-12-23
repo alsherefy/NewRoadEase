@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
-import { Shield, X, Save } from 'lucide-react';
+import { Shield, X, Save, CheckSquare, Square, MinusSquare } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
@@ -40,7 +40,7 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
         .from('permissions')
         .select('*')
         .eq('is_active', true)
-        .order('category')
+        .order('resource')
         .order('display_order');
 
       if (permsError) throw permsError;
@@ -76,16 +76,64 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
     );
   }
 
-  function groupPermissionsByCategory() {
+  function groupPermissionsByResource() {
     const grouped: Record<string, Permission[]> = {};
     permissions.forEach(permission => {
-      const category = permission.category || 'other';
-      if (!grouped[category]) {
-        grouped[category] = [];
+      const resource = permission.resource || 'other';
+      if (!grouped[resource]) {
+        grouped[resource] = [];
       }
-      grouped[category].push(permission);
+      grouped[resource].push(permission);
     });
     return grouped;
+  }
+
+  function isResourceFullySelected(resourcePermissions: Permission[]): boolean {
+    return resourcePermissions.length > 0 && resourcePermissions.every(p => selectedPermissionIds.includes(p.id));
+  }
+
+  function isResourcePartiallySelected(resourcePermissions: Permission[]): boolean {
+    const selectedCount = resourcePermissions.filter(p => selectedPermissionIds.includes(p.id)).length;
+    return selectedCount > 0 && selectedCount < resourcePermissions.length;
+  }
+
+  function toggleAllResourcePermissions(resourcePermissions: Permission[]) {
+    const allSelected = isResourceFullySelected(resourcePermissions);
+    const permissionIds = resourcePermissions.map(p => p.id);
+
+    if (allSelected) {
+      setSelectedPermissionIds(prev => prev.filter(id => !permissionIds.includes(id)));
+    } else {
+      setSelectedPermissionIds(prev => {
+        const newIds = [...prev];
+        permissionIds.forEach(id => {
+          if (!newIds.includes(id)) {
+            newIds.push(id);
+          }
+        });
+        return newIds;
+      });
+    }
+  }
+
+  function getResourceDisplayName(resource: string): string {
+    const resourceNameMap: Record<string, string> = {
+      dashboard: 'لوحة التحكم',
+      customers: 'العملاء',
+      vehicles: 'المركبات',
+      work_orders: 'أوامر العمل',
+      invoices: 'الفواتير',
+      inventory: 'المخزون',
+      expenses: 'المصروفات',
+      salaries: 'الرواتب',
+      technicians: 'الفنيين',
+      reports: 'التقارير',
+      users: 'المستخدمين',
+      roles: 'الأدوار',
+      settings: 'الإعدادات',
+      audit_logs: 'سجلات المراجعة',
+    };
+    return resourceNameMap[resource] || resource;
   }
 
   async function handleSave() {
@@ -138,9 +186,30 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
     );
   }
 
+  const groupedPermissions = groupPermissionsByResource();
+  const sortedResources = Object.keys(groupedPermissions).sort((a, b) => {
+    const orderMap: Record<string, number> = {
+      dashboard: 1,
+      customers: 2,
+      vehicles: 3,
+      work_orders: 4,
+      invoices: 5,
+      inventory: 6,
+      expenses: 7,
+      salaries: 8,
+      technicians: 9,
+      reports: 10,
+      users: 11,
+      roles: 12,
+      settings: 13,
+      audit_logs: 14,
+    };
+    return (orderMap[a] || 999) - (orderMap[b] || 999);
+  });
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
@@ -171,59 +240,97 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
           </p>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-220px)]">
-          <div className="space-y-6">
-            {Object.entries(groupPermissionsByCategory()).map(([category, perms]) => (
-              <div key={category} className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider">
-                  {t(`permissions.categories.${category}`)}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {perms
-                    .sort((a, b) => a.display_order - b.display_order)
-                    .map((permission) => (
-                      <label
-                        key={permission.id}
-                        className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-green-400 hover:shadow-md cursor-pointer transition-all group"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedPermissionIds.includes(permission.id)}
-                          onChange={() => togglePermission(permission.id)}
-                          className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                        />
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
-                            {translatePermission(permission.key, t)}
-                          </div>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-280px)]">
+          <div className="space-y-4">
+            {sortedResources.map((resource) => {
+              const resourcePermissions = groupedPermissions[resource];
+              const isFullySelected = isResourceFullySelected(resourcePermissions);
+              const isPartiallySelected = isResourcePartiallySelected(resourcePermissions);
+
+              return (
+                <div key={resource} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div
+                    onClick={() => toggleAllResourcePermissions(resourcePermissions)}
+                    className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 cursor-pointer hover:from-green-100 hover:to-emerald-100 transition-all border-b border-gray-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isFullySelected ? (
+                        <CheckSquare className="w-6 h-6 text-green-600" />
+                      ) : isPartiallySelected ? (
+                        <MinusSquare className="w-6 h-6 text-green-500" />
+                      ) : (
+                        <Square className="w-6 h-6 text-gray-400" />
+                      )}
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-900">
+                          {getResourceDisplayName(resource)}
+                        </h3>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {resourcePermissions.filter(p => selectedPermissionIds.includes(p.id)).length} / {resourcePermissions.length} محددة
+                        </p>
+                      </div>
+                      {isFullySelected && (
+                        <div className="px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded-full">
+                          الكل
                         </div>
-                        {selectedPermissionIds.includes(permission.id) && (
-                          <div className="flex-shrink-0 w-2 h-2 bg-green-600 rounded-full"></div>
-                        )}
-                      </label>
-                    ))}
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gray-50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {resourcePermissions
+                        .sort((a, b) => a.display_order - b.display_order)
+                        .map((permission) => (
+                          <label
+                            key={permission.id}
+                            className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-green-400 hover:shadow-md cursor-pointer transition-all group"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedPermissionIds.includes(permission.id)}
+                              onChange={() => togglePermission(permission.id)}
+                              className="w-4 h-4 text-green-600 rounded focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900 group-hover:text-green-600 transition-colors">
+                                {translatePermission(permission.key, t)}
+                              </div>
+                            </div>
+                            {selectedPermissionIds.includes(permission.id) && (
+                              <div className="flex-shrink-0 w-2 h-2 bg-green-600 rounded-full"></div>
+                            )}
+                          </label>
+                        ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex gap-3 justify-between">
-          <div className="text-sm text-gray-600">
-            {t('admin.roles.selectedPermissions')}: <span className="font-semibold">{selectedPermissionIds.length}</span>
+        <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3 justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-900">{selectedPermissionIds.length}</span> صلاحية محددة
+            </div>
+            <div className="text-xs text-gray-500">
+              من أصل {permissions.length} صلاحية
+            </div>
           </div>
           <div className="flex gap-3">
             <button
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all flex items-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Save className="w-4 h-4" />
               {saving ? t('common.saving') : t('common.save')}
