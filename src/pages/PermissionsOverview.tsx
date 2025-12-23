@@ -219,26 +219,23 @@ export default function PermissionsOverview() {
                     .map((permission) => (
                       <div
                         key={permission.id}
-                        className="border border-gray-200 rounded-lg p-4 hover:border-orange-300 hover:shadow-md transition-all"
+                        className="border-2 border-gray-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-lg transition-all bg-white"
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`${colors.bg} p-2 rounded-lg flex-shrink-0`}>
-                            <span className={`${colors.text} font-bold text-sm`}>
+                          <div className={`${colors.bg} p-3 rounded-xl flex-shrink-0 shadow-sm`}>
+                            <span className={`${colors.text} font-bold text-base`}>
                               {getResourceIcon(permission.resource)}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 text-sm mb-1">
+                            <h3 className="font-semibold text-gray-900 text-base mb-2">
                               {translatePermission(permission.key, t)}
                             </h3>
-                            <p className="text-xs text-gray-500 mb-2 font-mono bg-gray-50 px-2 py-1 rounded">
-                              {permission.key}
-                            </p>
                             <div className="flex gap-2 text-xs">
-                              <span className={`px-2 py-1 ${colors.bg} ${colors.text} rounded-full`}>
+                              <span className={`px-3 py-1.5 ${colors.bg} ${colors.text} rounded-full font-medium`}>
                                 {permission.resource}
                               </span>
-                              <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                              <span className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full font-medium">
                                 {permission.action}
                               </span>
                             </div>
@@ -254,33 +251,30 @@ export default function PermissionsOverview() {
                     .map((permission) => (
                       <div
                         key={permission.id}
-                        className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                        className="px-6 py-5 hover:bg-orange-50 transition-colors border-r-4 border-transparent hover:border-orange-500"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 flex-1">
-                            <div className={`${colors.bg} p-2 rounded-lg`}>
-                              <span className={`${colors.text} font-bold text-sm`}>
+                            <div className={`${colors.bg} p-3 rounded-xl shadow-sm`}>
+                              <span className={`${colors.text} font-bold text-base`}>
                                 {getResourceIcon(permission.resource)}
                               </span>
                             </div>
                             <div className="flex-1">
-                              <h3 className="font-medium text-gray-900">
+                              <h3 className="font-semibold text-gray-900 text-base">
                                 {translatePermission(permission.key, t)}
                               </h3>
-                              <p className="text-sm text-gray-500 mt-1">
+                              <p className="text-sm text-gray-600 mt-1">
                                 {translatePermissionDescription(permission.key, t)}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <code className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded font-mono">
-                              {permission.key}
-                            </code>
                             <div className="flex gap-2">
-                              <span className={`px-3 py-1 text-xs ${colors.bg} ${colors.text} rounded-full`}>
+                              <span className={`px-4 py-2 text-sm ${colors.bg} ${colors.text} rounded-full font-medium`}>
                                 {permission.resource}
                               </span>
-                              <span className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                              <span className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-full font-medium">
                                 {permission.action}
                               </span>
                             </div>

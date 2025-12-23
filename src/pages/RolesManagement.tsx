@@ -355,22 +355,22 @@ export default function RolesManagement() {
                         .map((permission) => (
                           <label
                             key={permission.id}
-                            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-orange-300 cursor-pointer transition-colors"
+                            className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-400 hover:shadow-md cursor-pointer transition-all group"
                           >
                             <input
                               type="checkbox"
                               checked={selectedPermissionIds.includes(permission.id)}
                               onChange={() => togglePermission(permission.id)}
-                              className="mt-1 w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                              className="w-5 h-5 text-orange-600 rounded focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                             />
                             <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">
                                 {translatePermission(permission.key, t)}
                               </div>
-                              <div className="text-xs text-gray-500 mt-0.5">
-                                {permission.key}
-                              </div>
                             </div>
+                            {selectedPermissionIds.includes(permission.id) && (
+                              <div className="flex-shrink-0 w-2 h-2 bg-orange-600 rounded-full"></div>
+                            )}
                           </label>
                         ))}
                     </div>
