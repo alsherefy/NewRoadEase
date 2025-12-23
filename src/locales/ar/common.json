@@ -959,22 +959,240 @@
       "system": "إدارة النظام"
     },
     "details": {
+      "dashboard": {
+        "view": {
+          "name": "عرض لوحة التحكم"
+        }
+      },
+      "settings": {
+        "view": {
+          "name": "عرض الإعدادات"
+        },
+        "update": {
+          "name": "تحديث الإعدادات"
+        },
+        "manage_workshop": {
+          "name": "إدارة إعدادات الورشة"
+        },
+        "manage_tax": {
+          "name": "إدارة إعدادات الضرائب"
+        }
+      },
+      "users": {
+        "view": {
+          "name": "عرض المستخدمين"
+        },
+        "create": {
+          "name": "إضافة مستخدم"
+        },
+        "update": {
+          "name": "تعديل المستخدمين"
+        },
+        "delete": {
+          "name": "حذف المستخدمين"
+        },
+        "manage_roles": {
+          "name": "إدارة أدوار المستخدمين"
+        },
+        "manage_permissions": {
+          "name": "إدارة الصلاحيات"
+        },
+        "change_password": {
+          "name": "تغيير كلمة مرور المستخدم"
+        }
+      },
+      "roles": {
+        "view": {
+          "name": "عرض الأدوار"
+        },
+        "create": {
+          "name": "إضافة دور"
+        },
+        "update": {
+          "name": "تعديل الأدوار"
+        },
+        "delete": {
+          "name": "حذف الأدوار"
+        },
+        "manage_permissions": {
+          "name": "إدارة صلاحيات الأدوار"
+        }
+      },
+      "audit_logs": {
+        "view": {
+          "name": "عرض سجل التدقيق"
+        }
+      },
+      "customers": {
+        "view": {
+          "name": "عرض العملاء"
+        },
+        "create": {
+          "name": "إضافة عميل"
+        },
+        "update": {
+          "name": "تعديل العملاء"
+        },
+        "delete": {
+          "name": "حذف العملاء"
+        },
+        "export": {
+          "name": "تصدير العملاء"
+        }
+      },
+      "vehicles": {
+        "view": {
+          "name": "عرض المركبات"
+        },
+        "create": {
+          "name": "إضافة مركبة"
+        },
+        "update": {
+          "name": "تعديل المركبات"
+        },
+        "delete": {
+          "name": "حذف المركبات"
+        }
+      },
+      "work_orders": {
+        "view": {
+          "name": "عرض أوامر العمل"
+        },
+        "create": {
+          "name": "إنشاء أمر عمل"
+        },
+        "update": {
+          "name": "تعديل أوامر العمل"
+        },
+        "delete": {
+          "name": "حذف أوامر العمل"
+        },
+        "cancel": {
+          "name": "إلغاء أوامر العمل"
+        },
+        "complete": {
+          "name": "إتمام أوامر العمل"
+        },
+        "export": {
+          "name": "تصدير أوامر العمل"
+        }
+      },
       "invoices": {
+        "view": {
+          "name": "عرض الفواتير"
+        },
+        "create": {
+          "name": "إنشاء فاتورة"
+        },
+        "update": {
+          "name": "تعديل الفواتير"
+        },
+        "delete": {
+          "name": "حذف الفواتير"
+        },
+        "print": {
+          "name": "طباعة الفواتير"
+        },
+        "export": {
+          "name": "تصدير الفواتير"
+        },
         "void": {
           "name": "إلغاء فاتورة"
         }
       },
+      "inventory": {
+        "view": {
+          "name": "عرض المخزون"
+        },
+        "create": {
+          "name": "إضافة قطعة غيار"
+        },
+        "update": {
+          "name": "تعديل المخزون"
+        },
+        "delete": {
+          "name": "حذف من المخزون"
+        },
+        "adjust_stock": {
+          "name": "تعديل الكميات"
+        },
+        "export": {
+          "name": "تصدير المخزون"
+        }
+      },
       "expenses": {
+        "view": {
+          "name": "عرض المصروفات"
+        },
+        "create": {
+          "name": "إضافة مصروف"
+        },
+        "update": {
+          "name": "تعديل المصروفات"
+        },
+        "delete": {
+          "name": "حذف المصروفات"
+        },
         "approve": {
           "name": "اعتماد مصروف"
+        },
+        "export": {
+          "name": "تصدير المصروفات"
         }
       },
       "salaries": {
+        "view": {
+          "name": "عرض الرواتب"
+        },
+        "create": {
+          "name": "إضافة راتب"
+        },
+        "update": {
+          "name": "تعديل الرواتب"
+        },
+        "delete": {
+          "name": "حذف الرواتب"
+        },
         "approve": {
           "name": "اعتماد راتب"
+        },
+        "export": {
+          "name": "تصدير الرواتب"
+        }
+      },
+      "technicians": {
+        "view": {
+          "name": "عرض الفنيين"
+        },
+        "create": {
+          "name": "إضافة فني"
+        },
+        "update": {
+          "name": "تعديل الفنيين"
+        },
+        "delete": {
+          "name": "حذف الفنيين"
+        },
+        "view_performance": {
+          "name": "عرض أداء الفنيين"
+        },
+        "manage_assignments": {
+          "name": "إدارة تعيينات الفنيين"
         }
       },
       "reports": {
+        "view": {
+          "name": "عرض التقارير"
+        },
+        "export": {
+          "name": "تصدير التقارير"
+        },
+        "financial": {
+          "name": "التقارير المالية"
+        },
+        "operations": {
+          "name": "تقارير العمليات"
+        },
         "performance": {
           "name": "تقرير الأداء"
         }

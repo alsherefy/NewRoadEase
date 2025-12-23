@@ -959,22 +959,240 @@
       "system": "System Administration"
     },
     "details": {
+      "dashboard": {
+        "view": {
+          "name": "View Dashboard"
+        }
+      },
+      "settings": {
+        "view": {
+          "name": "View Settings"
+        },
+        "update": {
+          "name": "Update Settings"
+        },
+        "manage_workshop": {
+          "name": "Manage Workshop Settings"
+        },
+        "manage_tax": {
+          "name": "Manage Tax Settings"
+        }
+      },
+      "users": {
+        "view": {
+          "name": "View Users"
+        },
+        "create": {
+          "name": "Create User"
+        },
+        "update": {
+          "name": "Update Users"
+        },
+        "delete": {
+          "name": "Delete Users"
+        },
+        "manage_roles": {
+          "name": "Manage User Roles"
+        },
+        "manage_permissions": {
+          "name": "Manage Permissions"
+        },
+        "change_password": {
+          "name": "Change User Password"
+        }
+      },
+      "roles": {
+        "view": {
+          "name": "View Roles"
+        },
+        "create": {
+          "name": "Create Role"
+        },
+        "update": {
+          "name": "Update Roles"
+        },
+        "delete": {
+          "name": "Delete Roles"
+        },
+        "manage_permissions": {
+          "name": "Manage Role Permissions"
+        }
+      },
+      "audit_logs": {
+        "view": {
+          "name": "View Audit Logs"
+        }
+      },
+      "customers": {
+        "view": {
+          "name": "View Customers"
+        },
+        "create": {
+          "name": "Create Customer"
+        },
+        "update": {
+          "name": "Update Customers"
+        },
+        "delete": {
+          "name": "Delete Customers"
+        },
+        "export": {
+          "name": "Export Customers"
+        }
+      },
+      "vehicles": {
+        "view": {
+          "name": "View Vehicles"
+        },
+        "create": {
+          "name": "Create Vehicle"
+        },
+        "update": {
+          "name": "Update Vehicles"
+        },
+        "delete": {
+          "name": "Delete Vehicles"
+        }
+      },
+      "work_orders": {
+        "view": {
+          "name": "View Work Orders"
+        },
+        "create": {
+          "name": "Create Work Order"
+        },
+        "update": {
+          "name": "Update Work Orders"
+        },
+        "delete": {
+          "name": "Delete Work Orders"
+        },
+        "cancel": {
+          "name": "Cancel Work Orders"
+        },
+        "complete": {
+          "name": "Complete Work Orders"
+        },
+        "export": {
+          "name": "Export Work Orders"
+        }
+      },
       "invoices": {
+        "view": {
+          "name": "View Invoices"
+        },
+        "create": {
+          "name": "Create Invoice"
+        },
+        "update": {
+          "name": "Update Invoices"
+        },
+        "delete": {
+          "name": "Delete Invoices"
+        },
+        "print": {
+          "name": "Print Invoices"
+        },
+        "export": {
+          "name": "Export Invoices"
+        },
         "void": {
           "name": "Void Invoice"
         }
       },
+      "inventory": {
+        "view": {
+          "name": "View Inventory"
+        },
+        "create": {
+          "name": "Create Spare Part"
+        },
+        "update": {
+          "name": "Update Inventory"
+        },
+        "delete": {
+          "name": "Delete from Inventory"
+        },
+        "adjust_stock": {
+          "name": "Adjust Stock"
+        },
+        "export": {
+          "name": "Export Inventory"
+        }
+      },
       "expenses": {
+        "view": {
+          "name": "View Expenses"
+        },
+        "create": {
+          "name": "Create Expense"
+        },
+        "update": {
+          "name": "Update Expenses"
+        },
+        "delete": {
+          "name": "Delete Expenses"
+        },
         "approve": {
           "name": "Approve Expense"
+        },
+        "export": {
+          "name": "Export Expenses"
         }
       },
       "salaries": {
+        "view": {
+          "name": "View Salaries"
+        },
+        "create": {
+          "name": "Create Salary"
+        },
+        "update": {
+          "name": "Update Salaries"
+        },
+        "delete": {
+          "name": "Delete Salaries"
+        },
         "approve": {
           "name": "Approve Salary"
+        },
+        "export": {
+          "name": "Export Salaries"
+        }
+      },
+      "technicians": {
+        "view": {
+          "name": "View Technicians"
+        },
+        "create": {
+          "name": "Create Technician"
+        },
+        "update": {
+          "name": "Update Technicians"
+        },
+        "delete": {
+          "name": "Delete Technicians"
+        },
+        "view_performance": {
+          "name": "View Technician Performance"
+        },
+        "manage_assignments": {
+          "name": "Manage Technician Assignments"
         }
       },
       "reports": {
+        "view": {
+          "name": "View Reports"
+        },
+        "export": {
+          "name": "Export Reports"
+        },
+        "financial": {
+          "name": "Financial Reports"
+        },
+        "operations": {
+          "name": "Operations Reports"
+        },
         "performance": {
           "name": "Performance Report"
         }
