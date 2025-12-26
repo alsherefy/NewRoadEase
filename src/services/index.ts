@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { apiClient, ApiError } from './apiClient';
 import { User, UserPermission, Customer, Vehicle, WorkOrder, Invoice, Technician, Salary, SparePart, Expense } from '../types';
 import type { User as SupabaseUser, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { cache, CacheKeys, CacheTTL } from '../utils/cacheUtils';
 
 export { ApiError as ServiceError } from './apiClient';
 
@@ -143,7 +144,15 @@ class TechniciansService {
   }
 
   async getActiveTechnicians(): Promise<Technician[]> {
-    return apiClient.get<Technician[]>('technicians', { activeOnly: 'true' });
+    return cache.fetchWithCache(
+      CacheKeys.TECHNICIANS_LIST,
+      () => apiClient.get<Technician[]>('technicians', { activeOnly: 'true' }),
+      CacheTTL.MEDIUM
+    );
+  }
+
+  invalidateCache(): void {
+    cache.remove(CacheKeys.TECHNICIANS_LIST);
   }
 
   async getTechnicianById(id: string): Promise<Technician> {
@@ -151,15 +160,20 @@ class TechniciansService {
   }
 
   async createTechnician(data: Omit<Technician, 'id' | 'created_at' | 'updated_at'>): Promise<Technician> {
-    return apiClient.post<Technician>('technicians', data);
+    const result = await apiClient.post<Technician>('technicians', data);
+    this.invalidateCache();
+    return result;
   }
 
   async updateTechnician(id: string, data: Partial<Technician>): Promise<Technician> {
-    return apiClient.put<Technician>(`technicians/${id}`, data);
+    const result = await apiClient.put<Technician>(`technicians/${id}`, data);
+    this.invalidateCache();
+    return result;
   }
 
   async deleteTechnician(id: string): Promise<void> {
     await apiClient.delete(`technicians/${id}`);
+    this.invalidateCache();
   }
 }
 
@@ -226,7 +240,15 @@ class AuthService {
 
 class UsersService {
   async getUserPermissions(userId: string): Promise<UserPermission[]> {
-    return apiClient.get<UserPermission[]>(`users/${userId}/permissions`);
+    return cache.fetchWithCache(
+      CacheKeys.USER_PERMISSIONS(userId),
+      () => apiClient.get<UserPermission[]>(`users/${userId}/permissions`),
+      CacheTTL.MEDIUM
+    );
+  }
+
+  invalidateUserPermissionsCache(userId: string): void {
+    cache.remove(CacheKeys.USER_PERMISSIONS(userId));
   }
 
   async getAllUsers(): Promise<User[]> {
@@ -254,6 +276,7 @@ class UsersService {
 
   async updatePermissions(userId: string, permissions: Array<{ permission_key: string; can_view: boolean; can_edit: boolean }>): Promise<void> {
     await apiClient.put(`users/${userId}/permissions`, { permissions });
+    this.invalidateUserPermissionsCache(userId);
   }
 }
 
@@ -395,18 +418,30 @@ interface WorkshopSettings {
 class SettingsService {
   async getWorkshopSettings(): Promise<WorkshopSettings | null> {
     try {
-      return await apiClient.get<WorkshopSettings>('settings');
+      return await cache.fetchWithCache(
+        CacheKeys.WORKSHOP_SETTINGS,
+        () => apiClient.get<WorkshopSettings>('settings'),
+        CacheTTL.LONG
+      );
     } catch {
       return null;
     }
   }
 
   async updateWorkshopSettings(id: string, data: Partial<WorkshopSettings>): Promise<WorkshopSettings> {
-    return apiClient.put<WorkshopSettings>(`settings/${id}`, data);
+    const result = await apiClient.put<WorkshopSettings>(`settings/${id}`, data);
+    cache.remove(CacheKeys.WORKSHOP_SETTINGS);
+    return result;
   }
 
   async createWorkshopSettings(data: Partial<WorkshopSettings>): Promise<WorkshopSettings> {
-    return apiClient.post<WorkshopSettings>('settings', data);
+    const result = await apiClient.post<WorkshopSettings>('settings', data);
+    cache.remove(CacheKeys.WORKSHOP_SETTINGS);
+    return result;
+  }
+
+  invalidateCache(): void {
+    cache.remove(CacheKeys.WORKSHOP_SETTINGS);
   }
 }
 

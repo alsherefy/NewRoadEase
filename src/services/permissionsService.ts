@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import type { Permission, UserPermissionOverride, DetailedPermissionKey } from '../types';
+import { cache, CacheKeys, CacheTTL } from '../utils/cacheUtils';
 
 interface CreatePermissionOverrideData {
   user_id: string;
@@ -11,7 +12,11 @@ interface CreatePermissionOverrideData {
 
 export const permissionsService = {
   async getAllPermissions(): Promise<Permission[]> {
-    return apiClient.get('/permissions');
+    return cache.fetchWithCache(
+      CacheKeys.PERMISSIONS_LIST,
+      () => apiClient.get<Permission[]>('/permissions'),
+      CacheTTL.LONG
+    );
   },
 
   async getPermissionsByCategory(category: string): Promise<Permission[]> {
@@ -27,11 +32,14 @@ export const permissionsService = {
   },
 
   async createPermissionOverride(data: CreatePermissionOverrideData): Promise<UserPermissionOverride> {
-    return apiClient.post('/permissions/overrides', data);
+    const result = await apiClient.post<UserPermissionOverride>('/permissions/overrides', data);
+    cache.remove(CacheKeys.USER_PERMISSIONS(data.user_id));
+    return result;
   },
 
   async deletePermissionOverride(overrideId: string): Promise<void> {
-    return apiClient.delete(`/permissions/overrides/${overrideId}`);
+    await apiClient.delete(`/permissions/overrides/${overrideId}`);
+    cache.invalidatePattern('user_permissions');
   },
 
   async checkPermission(userId: string, permissionKey: string): Promise<boolean> {
