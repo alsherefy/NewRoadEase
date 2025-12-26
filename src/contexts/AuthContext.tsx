@@ -70,17 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userData) {
         setUser(userData);
 
-        const { data: rolesData, error: rolesError } = await supabase
-          .rpc('get_user_roles', { p_user_id: userId });
+        const [rolesResult, permsResult] = await Promise.all([
+          supabase.rpc('get_user_roles', { p_user_id: userId }),
+          supabase.rpc('get_user_all_permissions', { p_user_id: userId })
+        ]);
 
-        console.log('🔍 Loading user roles:', { rolesData, rolesError });
-        setUserRoles(rolesData || []);
+        console.log('🔍 Loading user roles:', { rolesData: rolesResult.data, rolesError: rolesResult.error });
+        setUserRoles(rolesResult.data || []);
 
-        const { data: computedPerms } = await supabase
-          .rpc('get_user_all_permissions', { p_user_id: userId });
-
-        if (computedPerms) {
-          setComputedPermissions(computedPerms.map((p: { permission_key: string }) => p.permission_key));
+        if (permsResult.data) {
+          setComputedPermissions(permsResult.data.map((p: { permission_key: string }) => p.permission_key));
         }
       }
     } catch (error) {

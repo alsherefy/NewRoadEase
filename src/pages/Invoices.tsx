@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatToFixed } from '../utils/numberUtils';
-import { invoicesService, customersService } from '../services';
+import { invoicesService } from '../services';
 
 interface Invoice {
   id: string;
@@ -41,10 +41,10 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
   const { t } = useTranslation();
   const { isCustomerServiceOrAdmin } = useAuth();
   const toast = useToast();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [customers, setCustomers] = useState<Record<string, Customer>>({});
+  const [invoices, setInvoices] = useState<(Invoice & { customer?: Customer })[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -58,6 +58,14 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
   useEffect(() => {
     fetchInvoices();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const fetchInvoices = async (resetPage = false) => {
     try {
@@ -77,18 +85,6 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
       }
 
       setHasMore(result.hasMore);
-
-      const customerIds = [...new Set(result.data.map(inv => inv.customer_id))];
-      if (customerIds.length > 0) {
-        const allCustomers = await customersService.getAllCustomers();
-        const customerMap: Record<string, Customer> = { ...customers };
-        allCustomers
-          .filter(c => customerIds.includes(c.id))
-          .forEach(customer => {
-            customerMap[customer.id] = { name: customer.name };
-          });
-        setCustomers(customerMap);
-      }
     } catch (error) {
       console.error('Error fetching invoices:', error);
     } finally {
@@ -176,8 +172,8 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
 
   const filteredInvoices = invoices
     .filter(invoice => {
-      const matchesSearch = invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           customers[invoice.customer_id]?.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = invoice.invoice_number.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                           invoice.customer?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
       const matchesStatus = filterStatus === 'all' || invoice.payment_status === filterStatus;
       return matchesSearch && matchesStatus;
     });
@@ -416,7 +412,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
                         <span className="font-semibold text-gray-900">{invoice.invoice_number}</span>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-gray-700">{customers[invoice.customer_id]?.name || t('common.not_specified')}</span>
+                        <span className="text-gray-700">{invoice.customer?.name || t('common.not_specified')}</span>
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-sm text-gray-600">
@@ -480,7 +476,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <p className="text-white font-bold text-lg mb-1">{invoice.invoice_number}</p>
-                        <p className="text-blue-100 text-sm">{customers[invoice.customer_id]?.name || t('common.not_specified')}</p>
+                        <p className="text-blue-100 text-sm">{invoice.customer?.name || t('common.not_specified')}</p>
                       </div>
                       {getStatusBadge(invoice.payment_status)}
                     </div>

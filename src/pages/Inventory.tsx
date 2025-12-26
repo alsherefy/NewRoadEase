@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Edit2, Trash2, Search, AlertTriangle, CheckCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { SparePart } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useTranslation } from 'react-i18next';
 import { normalizeNumberInput, formatToFixed } from '../utils/numberUtils';
+import { inventoryService } from '../services';
 
 export function Inventory() {
   const { t } = useTranslation();
@@ -14,6 +14,7 @@ export function Inventory() {
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPart, setEditingPart] = useState<SparePart | null>(null);
 
@@ -32,17 +33,21 @@ export function Inventory() {
     fetchSpareParts();
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const fetchSpareParts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('spare_parts')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
+      const data = await inventoryService.getAllSpareParts({ orderBy: 'name', orderDirection: 'asc' });
       setSpareParts(data || []);
     } catch (error) {
       console.error('Error fetching spare parts:', error);
+      toast.error(t('inventory.error_loading'));
     } finally {
       setLoading(false);
     }
@@ -88,19 +93,10 @@ export function Inventory() {
 
     try {
       if (editingPart) {
-        const { error } = await supabase
-          .from('spare_parts')
-          .update(formData)
-          .eq('id', editingPart.id);
-
-        if (error) throw error;
+        await inventoryService.updateSparePart(editingPart.id, formData);
         toast.success(t('inventory.success_updated'));
       } else {
-        const { error } = await supabase
-          .from('spare_parts')
-          .insert([formData]);
-
-        if (error) throw error;
+        await inventoryService.createSparePart(formData as Omit<SparePart, 'id' | 'created_at' | 'updated_at'>);
         toast.success(t('inventory.success_created'));
       }
 
@@ -123,12 +119,7 @@ export function Inventory() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from('spare_parts')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await inventoryService.deleteSparePart(id);
       toast.success(t('inventory.success_deleted'));
       fetchSpareParts();
     } catch (error) {
@@ -137,10 +128,13 @@ export function Inventory() {
     }
   };
 
-  const filteredParts = spareParts.filter(part =>
-    part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    part.category?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredParts = useMemo(() =>
+    spareParts.filter(part =>
+      part.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      part.part_number.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      part.category?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    ),
+    [spareParts, debouncedSearchTerm]
   );
 
   const totalValue = spareParts.reduce((sum, part) => sum + (part.quantity * Number(part.unit_price)), 0);

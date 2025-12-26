@@ -30,6 +30,7 @@ export function Customers() {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 30;
@@ -61,6 +62,14 @@ export function Customers() {
   useEffect(() => {
     loadCustomersAndVehicles();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   async function loadCustomersAndVehicles(resetPage = false) {
     try {
@@ -312,9 +321,9 @@ export function Customers() {
   }
 
   const filteredCustomers = customers.filter((customer) => {
-    if (!searchQuery.trim()) return true;
+    if (!debouncedSearchQuery.trim()) return true;
 
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase();
 
     const matchesName = customer.name.toLowerCase().includes(query);
     const matchesPhone = customer.phone.toLowerCase().includes(query);
