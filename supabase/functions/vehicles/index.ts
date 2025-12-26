@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const customerId = url.searchParams.get('customer_id');
+        const customerId = url.searchParams.get('customerId') || url.searchParams.get('customer_id');
         let query = supabase
           .from('vehicles')
           .select('*, customer:customers(id, name)')
