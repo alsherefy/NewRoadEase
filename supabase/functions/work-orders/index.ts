@@ -95,18 +95,29 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const { data, error } = await supabase
+        const limit = parseInt(url.searchParams.get('limit') || '50');
+        const offset = parseInt(url.searchParams.get('offset') || '0');
+        const orderBy = url.searchParams.get('orderBy') || 'created_at';
+        const orderDir = url.searchParams.get('orderDir') || 'desc';
+
+        const { data, error, count } = await supabase
           .from('work_orders')
           .select(`
             *,
             customer:customers(id, name, phone),
             vehicle:vehicles(id, car_make, car_model, car_year, plate_number)
-          `)
+          `, { count: 'exact' })
           .eq('organization_id', auth.organizationId)
-          .order('created_at', { ascending: false });
+          .order(orderBy, { ascending: orderDir === 'asc' })
+          .range(offset, offset + limit - 1);
 
         if (error) throw new Error(error.message);
-        return successResponse(data || []);
+
+        return successResponse({
+          data: data || [],
+          count: count || 0,
+          hasMore: (count || 0) > offset + limit
+        });
       }
 
       case 'POST': {
