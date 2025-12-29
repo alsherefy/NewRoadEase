@@ -1322,7 +1322,14 @@
     "server_error": "Server error",
     "try_again": "Please try again",
     "save_failed": "Failed to save changes",
-    "delete_failed": "Failed to delete"
+    "delete_failed": "Failed to delete",
+    "no_permission": "You do not have permission to perform this action",
+    "no_permission_view": "You do not have permission to view this data",
+    "no_permission_edit": "You do not have permission to edit this data",
+    "no_permission_create": "You do not have permission to create new data",
+    "no_permission_delete": "You do not have permission to delete this data",
+    "system_error": "A system error occurred, please try again",
+    "contact_admin": "If the problem persists, please contact the administrator"
   },
   "rbac": {
     "title": "Access Control Management",

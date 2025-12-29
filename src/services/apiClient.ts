@@ -45,13 +45,33 @@ async function handleResponse<T>(response: Response): Promise<T> {
     data: null,
     error: {
       code: 'PARSE_ERROR',
-      message: 'Failed to parse response',
+      message: 'حدث خطأ في النظام - System error occurred',
     }
   }));
 
   if (!json.success || json.error) {
+    let errorMessage = json.error?.message || `خطأ في النظام - HTTP error ${response.status}`;
+
+    if (response.status === 403) {
+      if (errorMessage.includes('permission') || errorMessage.includes('صلاحية')) {
+        errorMessage = errorMessage;
+      } else {
+        errorMessage = 'ليس لديك صلاحية للقيام بهذا الإجراء - You do not have permission to perform this action';
+      }
+    } else if (response.status === 401) {
+      errorMessage = 'يجب عليك تسجيل الدخول أولاً - You must login first';
+    } else if (response.status === 404) {
+      errorMessage = 'البيانات المطلوبة غير موجودة - Requested data not found';
+    } else if (response.status === 500) {
+      errorMessage = 'حدث خطأ في الخادم - Server error occurred';
+    } else if (response.status >= 400 && response.status < 500) {
+      if (!errorMessage.includes('صلاحية') && !errorMessage.includes('permission')) {
+        errorMessage = `خطأ في الطلب - ${errorMessage}`;
+      }
+    }
+
     throw new ApiError(
-      json.error?.message || `HTTP error ${response.status}`,
+      errorMessage,
       response.status,
       json.error?.code,
       json.error?.details

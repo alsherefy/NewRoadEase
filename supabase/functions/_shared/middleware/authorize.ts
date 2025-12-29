@@ -4,7 +4,7 @@ import { Role, PermissionKey, ROLES } from "../constants/roles.ts";
 export function requireRole(user: JWTPayload, allowedRoles: Role[]): void {
   if (!allowedRoles.includes(user.role)) {
     throw new ForbiddenError(
-      `Access denied. Required role: ${allowedRoles.join(" or ")}`
+      "ليس لديك صلاحية للقيام بهذا الإجراء - You do not have permission to perform this action"
     );
   }
 }
@@ -52,8 +52,9 @@ export function requirePermission(
   requireEdit: boolean = false
 ): void {
   if (!hasPermission(user, resource, requireEdit)) {
+    const action = requireEdit ? "تعديل" : "عرض";
     throw new ForbiddenError(
-      `Insufficient permissions for resource: ${resource}`
+      `ليس لديك صلاحية ${action} ${resource} - You do not have permission to ${requireEdit ? 'edit' : 'view'} ${resource}`
     );
   }
 }
