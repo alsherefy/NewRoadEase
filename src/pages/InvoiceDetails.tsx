@@ -543,11 +543,9 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
                 </>
               )}
 
-              <div className={`flex justify-between items-center py-4 px-4 rounded-xl ${
-                isTaxInvoice ? 'bg-gradient-to-r from-blue-600 to-blue-700' : 'bg-gradient-to-r from-gray-700 to-gray-800'
-              } text-white print:py-3 print:bg-white print:text-gray-900 print:border-2 print:border-gray-900`}>
-                <span className="text-lg font-bold print:text-base">{t('invoices.grand_total')}:</span>
-                <span className="text-2xl font-bold print:text-xl">{formatToFixed(Number(invoice.total))} {t('common.sar')}</span>
+              <div className="flex justify-between items-center py-3 px-4 bg-gray-100 rounded-lg border-2 border-gray-300 print:py-3 print:bg-white print:text-gray-900 print:border-2 print:border-gray-900">
+                <span className="text-lg font-bold text-gray-900 print:text-base">{t('invoices.grand_total')}:</span>
+                <span className="text-2xl font-bold text-gray-900 print:text-xl">{formatToFixed(Number(invoice.total))} {t('common.sar')}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-4">
