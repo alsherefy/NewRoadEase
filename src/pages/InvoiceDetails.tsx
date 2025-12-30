@@ -48,6 +48,15 @@ interface InvoiceItem {
   total: number;
 }
 
+interface SparePart {
+  id: string;
+  name: string;
+  part_number: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
 interface Customer {
   name: string;
   phone: string;
@@ -77,6 +86,7 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
   const { user } = useAuth();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
@@ -143,6 +153,33 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
           .single();
 
         setWorkOrder(workOrderData);
+
+        const { data: sparePartsData } = await supabase
+          .from('work_order_spare_parts')
+          .select(`
+            id,
+            quantity,
+            unit_price,
+            total,
+            spare_part_id,
+            spare_parts (
+              name,
+              part_number
+            )
+          `)
+          .eq('work_order_id', invoiceData.work_order_id);
+
+        if (sparePartsData) {
+          const formattedSpareParts = sparePartsData.map((item: any) => ({
+            id: item.id,
+            name: item.spare_parts?.name || '',
+            part_number: item.spare_parts?.part_number || '',
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unit_price),
+            total: Number(item.total)
+          }));
+          setSpareParts(formattedSpareParts);
+        }
       }
     } catch (error) {
       console.error('Error fetching invoice:', error);
@@ -416,6 +453,42 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
               </table>
             </div>
           </div>
+
+          {spareParts.length > 0 && (
+            <div className="mb-6 print:mb-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-3 print:mb-2 print:text-base">{t('work_orders.spare_parts')}</h3>
+              <div className="overflow-hidden border border-gray-200 rounded-xl">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-green-600 text-white text-sm">
+                      <th className="text-right py-3 px-4 font-bold print:py-2">{t('inventory.part_name')}</th>
+                      <th className="text-center py-3 px-4 font-bold print:py-2">{t('inventory.part_number')}</th>
+                      <th className="text-center py-3 px-4 font-bold print:py-2">{t('invoices.quantity')}</th>
+                      <th className="text-center py-3 px-4 font-bold print:py-2">{t('invoices.price')}</th>
+                      <th className="text-left py-3 px-4 font-bold print:py-2">{t('common.total')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {spareParts.map((part, index) => (
+                      <tr key={part.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-3 px-4 text-gray-900 font-medium text-sm print:py-2">{part.name}</td>
+                        <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">
+                          <span className="px-2 py-1 bg-gray-100 rounded-lg text-xs font-mono">
+                            {part.part_number}
+                          </span>
+                        </td>
+                        <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">{formatToFixed(part.quantity)}</td>
+                        <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">{formatToFixed(part.unit_price)}</td>
+                        <td className="text-left py-3 px-4 text-gray-900 font-semibold text-sm print:py-2">
+                          {formatToFixed(part.total)} {t('common.sar')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end mb-6 print:mb-4">
             <div className="w-96 space-y-2 print:w-80">
