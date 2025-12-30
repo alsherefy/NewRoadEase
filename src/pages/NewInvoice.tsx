@@ -42,6 +42,15 @@ interface InvoiceItem {
   total: number;
 }
 
+interface SparePart {
+  id: string;
+  name: string;
+  part_number: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
 export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -62,6 +71,7 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
   const [items, setItems] = useState<InvoiceItem[]>([
     { description: '', quantity: 1, unit_price: 0, total: 0 }
   ]);
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -195,6 +205,35 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
           unit_price: item.unit_price,
           total: item.total,
         })));
+      }
+
+      if (invoice.work_order_id) {
+        const { data: sparePartsData } = await supabase
+          .from('work_order_spare_parts')
+          .select(`
+            id,
+            quantity,
+            unit_price,
+            total,
+            spare_part_id,
+            spare_parts (
+              name,
+              part_number
+            )
+          `)
+          .eq('work_order_id', invoice.work_order_id);
+
+        if (sparePartsData && sparePartsData.length > 0) {
+          const formattedSpareParts = sparePartsData.map((item: any) => ({
+            id: item.id,
+            name: item.spare_parts?.name || '',
+            part_number: item.spare_parts?.part_number || '',
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unit_price),
+            total: Number(item.total)
+          }));
+          setSpareParts(formattedSpareParts);
+        }
       }
     } catch (error) {
       console.error('Error loading invoice:', error);
@@ -669,6 +708,58 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
             </div>
           </div>
         </div>
+
+        {spareParts.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <Receipt className="h-5 w-5 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">{t('work_orders.spare_parts')}</h3>
+              <span className="text-sm text-gray-500">({t('work_orders.from_work_order')})</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-green-50 border-b-2 border-green-200">
+                    <th className="text-right py-3 px-4 text-sm font-bold text-green-900">{t('inventory.part_name')}</th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-green-900">{t('inventory.part_number')}</th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-green-900">{t('invoices.quantity')}</th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-green-900">{t('invoices.price')}</th>
+                    <th className="text-left py-3 px-4 text-sm font-bold text-green-900">{t('common.total')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {spareParts.map((part, index) => (
+                    <tr key={part.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="py-3 px-4 text-gray-900 font-medium text-sm">{part.name}</td>
+                      <td className="text-center py-3 px-4">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-mono">
+                          {part.part_number}
+                        </span>
+                      </td>
+                      <td className="text-center py-3 px-4 text-gray-700 text-sm">{formatToFixed(part.quantity)}</td>
+                      <td className="text-center py-3 px-4 text-gray-700 text-sm">{formatToFixed(part.unit_price)}</td>
+                      <td className="text-left py-3 px-4 text-gray-900 font-semibold text-sm">
+                        {formatToFixed(part.total)} {t('common.currency')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-xl">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-green-900">{t('work_orders.spare_parts_total')}:</span>
+                <span className="font-bold text-green-900 text-lg">
+                  {formatToFixed(spareParts.reduce((sum, part) => sum + part.total, 0))} {t('common.currency')}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
           <h3 className="text-xl font-bold text-gray-900 mb-6">{t('invoices.payment_info')}</h3>

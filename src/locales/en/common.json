@@ -150,6 +150,8 @@
     "spare_part": "Spare Part",
     "used_spare_parts": "Used Spare Parts",
     "spare_parts_used": "Spare Parts Used",
+    "spare_parts_total": "Spare Parts Total",
+    "from_work_order": "From Work Order",
     "total_labor_cost": "Total Labor Cost",
     "labor_cost": "Labor Cost",
     "total_labor": "Total Labor",

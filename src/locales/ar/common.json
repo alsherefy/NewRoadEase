@@ -150,6 +150,8 @@
     "spare_part": "قطعة غيار",
     "used_spare_parts": "قطع الغيار المستخدمة",
     "spare_parts_used": "قطع الغيار المستخدمة",
+    "spare_parts_total": "إجمالي قطع الغيار",
+    "from_work_order": "من طلب الصيانة",
     "total_labor_cost": "تكلفة العمالة",
     "labor_cost": "تكلفة العمالة",
     "total_labor": "إجمالي العمالة",
