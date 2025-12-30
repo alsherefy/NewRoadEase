@@ -263,7 +263,9 @@
     "edit_invoice_desc": "Update invoice data and payment",
     "item_description_placeholder": "e.g., Maintenance service, Spare part...",
     "payment_info": "Payment Information",
-    "work_order_number": "Work Order Number"
+    "work_order_number": "Work Order Number",
+    "payment_method": "Payment Method",
+    "notes_placeholder": "Additional notes about the invoice..."
   },
   "inventory": {
     "title": "Inventory",

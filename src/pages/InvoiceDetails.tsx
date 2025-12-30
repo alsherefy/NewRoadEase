@@ -99,9 +99,14 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
         .from('invoices')
         .select('*')
         .eq('id', invoiceId)
-        .single();
+        .maybeSingle();
 
       if (invoiceError) throw invoiceError;
+      if (!invoiceData) {
+        toast.error('Invoice not found');
+        navigate('/invoices');
+        return;
+      }
       setInvoice(invoiceData);
       setNewPaidAmount(Number(invoiceData.paid_amount));
 

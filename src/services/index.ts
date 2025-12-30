@@ -20,6 +20,15 @@ export interface PaginatedResponse<T> {
 }
 
 class WorkOrdersService {
+  async getAllWorkOrders(options?: QueryOptions): Promise<WorkOrder[]> {
+    const params: Record<string, string> = {};
+    if (options?.orderBy) params.orderBy = options.orderBy;
+    if (options?.orderDirection) params.orderDir = options.orderDirection;
+
+    const result = await apiClient.get<PaginatedResponse<WorkOrder>>('work-orders', { ...params, limit: '1000' });
+    return result.data;
+  }
+
   async getPaginatedWorkOrders(options: QueryOptions): Promise<PaginatedResponse<WorkOrder>> {
     const params: Record<string, string> = {};
     if (options.limit) params.limit = String(options.limit);
