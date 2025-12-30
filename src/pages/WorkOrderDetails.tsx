@@ -235,7 +235,8 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
       const serviceItems = (servicesData || []).map(service => ({
         invoice_id: invoice.id,
         item_type: 'service',
-        description: `${service.service_type} - ${service.description}`,
+        service_type: service.service_type,
+        description: service.description,
         quantity: 1,
         unit_price: Number(service.labor_cost) || 0,
         total: Number(service.labor_cost) || 0

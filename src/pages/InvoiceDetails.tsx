@@ -42,6 +42,7 @@ interface WorkOrder {
 interface InvoiceItem {
   id: string;
   item_type: string;
+  service_type?: string;
   description: string;
   quantity: number;
   unit_price: number;
@@ -434,13 +435,19 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
                     <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} print:bg-white`}>
                       <td className="py-3 px-4 text-gray-900 font-medium text-sm print:py-2">{item.description}</td>
                       <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                          item.item_type === 'service'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-green-100 text-green-700'
-                        } print:bg-white print:text-gray-900 print:border print:border-gray-400`}>
-                          {item.item_type === 'service' ? t('services.service_type') : t('work_orders.spare_parts')}
-                        </span>
+                        {item.item_type === 'service' && item.service_type ? (
+                          <span className="px-2 py-1 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 print:bg-white print:text-gray-900 print:border print:border-gray-400">
+                            {item.service_type}
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                            item.item_type === 'service'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-green-100 text-green-700'
+                          } print:bg-white print:text-gray-900 print:border print:border-gray-400`}>
+                            {item.item_type === 'service' ? t('services.service_type') : t('work_orders.spare_parts')}
+                          </span>
+                        )}
                       </td>
                       <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">{formatToFixed(Number(item.quantity))}</td>
                       <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">{formatToFixed(Number(item.unit_price))}</td>

@@ -67,7 +67,10 @@ function AppContent() {
       case 'work-orders':
         return (
           <WorkOrders
-            onNewOrder={() => setActiveTab('new-work-order')}
+            onNewOrder={() => {
+              setSelectedOrderId('');
+              setActiveTab('new-work-order');
+            }}
             onViewOrder={(orderId) => {
               setSelectedOrderId(orderId);
               setActiveTab('work-order-details');
@@ -106,7 +109,10 @@ function AppContent() {
       case 'invoices':
         return (
           <Invoices
-            onNewInvoice={() => setActiveTab('new-invoice')}
+            onNewInvoice={() => {
+              setSelectedInvoiceId('');
+              setActiveTab('new-invoice');
+            }}
             onViewInvoice={(invoiceId) => {
               setSelectedInvoiceId(invoiceId);
               setActiveTab('invoice-details');
