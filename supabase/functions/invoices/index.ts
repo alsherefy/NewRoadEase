@@ -166,9 +166,10 @@ Deno.serve(async (req: Request) => {
           .eq("id", invoiceId)
           .eq("organization_id", auth.organizationId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+        if (!data) throw new ApiError("Invoice not found or you don't have permission", "NOT_FOUND", 404);
 
         if (items) {
           await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);

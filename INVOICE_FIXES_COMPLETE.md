@@ -3,9 +3,13 @@
 
 ## 📋 نظرة عامة | Overview
 
-تم إصلاح جميع المشاكل المتعلقة بالفواتير بنجاح:
+تم إصلاح جميع المشاكل المتعلقة بالفواتير بنجاح (بما فيها خطأ Edge Function):
 
-All invoice-related issues have been successfully fixed:
+All invoice-related issues have been successfully fixed (including Edge Function bug):
+
+**⚠️ تحديث:** تم إصلاح خطأ إضافي في Edge Function - راجع الملف `EDGE_FUNCTION_FIX.md`
+
+**⚠️ Update:** Additional Edge Function bug fixed - See `EDGE_FUNCTION_FIX.md`
 
 ---
 
@@ -405,11 +409,54 @@ fetchInvoiceDetails(); // ✅ إعادة جلب البيانات
 
 ---
 
-**تاريخ الإصلاح:** 29 ديسمبر 2024
+---
+
+## 🔧 إصلاح إضافي: Edge Function Bug
+
+### 5️⃣ خطأ Edge Function عند التحديث | Edge Function Update Error
+
+**المشكلة | Problem:**
+- بعد إصلاح استخدام Edge Function، ظهر خطأ: "Cannot coerce the result to a single JSON object"
+- After fixing to use Edge Function, error appeared: "Cannot coerce the result to a single JSON object"
+
+**السبب | Root Cause:**
+- في Edge Function، كان يستخدم `.single()` بدلاً من `.maybeSingle()`
+- In Edge Function, was using `.single()` instead of `.maybeSingle()`
+- عند عدم وجود صف أو صف غير متطابق، `.single()` يرمي خطأ
+- When no row or non-matching row, `.single()` throws error
+
+**الحل | Solution:**
+```typescript
+// قبل | Before
+.select().single()  // ❌
+
+// بعد | After
+.select().maybeSingle()  // ✅
+if (!data) throw new ApiError("Invoice not found or you don't have permission", "NOT_FOUND", 404);
+```
+
+**الملف المعدل | Modified File:**
+```
+supabase/functions/invoices/index.ts (line 169)
+```
+
+**التوثيق الكامل | Full Documentation:**
+راجع ملف `EDGE_FUNCTION_FIX.md` للتفاصيل الكاملة
+
+See `EDGE_FUNCTION_FIX.md` for full details
+
+**إعادة التشغيل | Restart:**
+- ✅ تم إعادة تشغيل جميع Edge Functions عبر keep-alive
+- ✅ All Edge Functions restarted via keep-alive
+
+---
+
+**تاريخ الإصلاح:** 30 ديسمبر 2024
 **الحالة:** ✅ مكتمل وجاهز للإنتاج
-**الإصدار:** 2.1.0
-**Build Status:** ✅ Success (7.50s)
+**الإصدار:** 2.1.1
+**Build Status:** ✅ Success (7.54s)
 **Translation Keys:** 930 (AR + EN)
+**Edge Functions:** ✅ All Working
 
 ---
 
@@ -417,17 +464,20 @@ fetchInvoiceDetails(); // ✅ إعادة جلب البيانات
 
 **قبل | Before:**
 - ❌ تحديث الدفع لا يعمل
+- ❌ خطأ "Cannot coerce..." في Edge Function
 - ❌ طلب الصيانة لا يظهر
 - ❌ عناصر فارغة
 - ❌ نصوص غير مترجمة
 
 **بعد | After:**
-- ✅ تحديث الدفع يعمل بشكل مثالي
-- ✅ طلب الصيانة يظهر بوضوح
+- ✅ تحديث الدفع يعمل بشكل مثالي (Frontend + Backend)
+- ✅ Edge Function محسّن مع `.maybeSingle()`
+- ✅ رسائل خطأ واضحة: "Invoice not found or you don't have permission"
+- ✅ طلب الصيانة يظهر بوضوح (رقم + وصف)
 - ✅ عناصر الفاتورة تُعرض بشكل صحيح
-- ✅ جميع النصوص مترجمة
-- ✅ رسائل خطأ واضحة باللغتين
+- ✅ جميع النصوص مترجمة (930 مفتاح)
 - ✅ تصميم محسّن وأيقونات جديدة
+- ✅ All Edge Functions تعمل بشكل صحيح
 
 **جاهز للاستخدام في الإنتاج! 🚀**
 **Ready for Production! 🚀**
