@@ -224,7 +224,15 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
 
       if (invoiceError) throw invoiceError;
 
-      const serviceItems = services.map(service => ({
+      // Re-fetch services to ensure we have the latest data
+      const { data: servicesData, error: servicesError } = await supabase
+        .from('work_order_services')
+        .select('*')
+        .eq('work_order_id', orderId);
+
+      if (servicesError) throw servicesError;
+
+      const serviceItems = (servicesData || []).map(service => ({
         invoice_id: invoice.id,
         item_type: 'service',
         description: `${service.service_type} - ${service.description}`,
@@ -245,12 +253,27 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
 
       const allItems = [...serviceItems, ...partItems];
 
+      console.log('Creating invoice items:', {
+        serviceItemsCount: serviceItems.length,
+        partItemsCount: partItems.length,
+        totalItems: allItems.length,
+        serviceItems,
+        partItems
+      });
+
       if (allItems.length > 0) {
         const { error: itemsError } = await supabase
           .from('invoice_items')
           .insert(allItems);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error('Error inserting invoice items:', itemsError);
+          throw itemsError;
+        }
+
+        console.log('Successfully inserted', allItems.length, 'invoice items');
+      } else {
+        console.warn('No items to insert into invoice');
       }
 
       toast.success(`${t('work_orders.invoice_created')} ${invoiceNumber}`);
