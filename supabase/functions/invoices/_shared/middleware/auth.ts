@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { JWTPayload, UnauthorizedError } from "../_shared/types.ts";
-import { Role, ALL_ROLES } from "../_shared/constants/roles.ts";
+import { JWTPayload, UnauthorizedError } from "../types.ts";
+import { Role, ALL_ROLES } from "../constants/roles.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -41,23 +41,15 @@ export async function authenticateRequest(req: Request): Promise<JWTPayload> {
   }
 
   const { data: userRoles } = await supabase
-    .from("user_roles")
-    .select(`
-      role_id,
-      roles!inner(key, is_active)
-    `)
-    .eq("user_id", user.id)
-    .eq("roles.is_active", true)
-    .limit(1)
-    .maybeSingle();
+    .rpc("get_user_roles", { p_user_id: user.id });
 
-  if (!userRoles || !userRoles.roles) {
+  if (!userRoles || userRoles.length === 0) {
     throw new UnauthorizedError("User has no active roles assigned");
   }
 
-  const userRole = userRoles.roles.key as Role;
+  const userRole = userRoles[0].role.key as Role;
   if (!ALL_ROLES.includes(userRole)) {
-    throw new UnauthorizedError(`Invalid user role: ${userRoles.roles.key}`);
+    throw new UnauthorizedError(`Invalid user role: ${userRoles[0].role.key}`);
   }
 
   let permissions;

@@ -1,4 +1,4 @@
-import { ApiResponse } from "../_shared/types.ts";
+import { ApiResponse } from "../types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

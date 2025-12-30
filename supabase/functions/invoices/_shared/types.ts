@@ -1,4 +1,4 @@
-import { Role, Permission } from "../_shared/constants/roles.ts";
+import { Role, Permission } from "./constants/roles.ts";
 
 export interface JWTPayload {
   userId: string;

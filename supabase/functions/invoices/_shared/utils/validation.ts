@@ -1,4 +1,4 @@
-import { ValidationError } from "../_shared/types.ts";
+import { ValidationError } from "../types.ts";
 
 export function validateCustomer(data: any): void {
   const errors: string[] = [];
