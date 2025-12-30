@@ -63,6 +63,10 @@ export function adminAndCustomerService(user: JWTPayload): void {
   requireRole(user, [ROLES.ADMIN, ROLES.CUSTOMER_SERVICE]);
 }
 
+export function canManagePayments(user: JWTPayload): void {
+  requireRole(user, [ROLES.ADMIN, ROLES.CUSTOMER_SERVICE, ROLES.RECEPTIONIST]);
+}
+
 export async function checkOwnership(
   user: JWTPayload,
   resource: string,

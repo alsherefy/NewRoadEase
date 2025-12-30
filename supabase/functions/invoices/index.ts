@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
+import { allRoles, adminAndCustomerService, adminOnly, checkOwnership, canManagePayments } from "../_shared/middleware/authorize.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { validateUUID, validatePagination, validateRequestBody } from "../_shared/utils/validation.ts";
 import { RESOURCES } from "../_shared/constants/resources.ts";
@@ -152,13 +152,24 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        adminAndCustomerService(auth);
         validateUUID(invoiceId, "Invoice ID");
 
         await checkOwnership(auth, RESOURCES.INVOICES, invoiceId!);
 
         const body = await req.json();
         const { items, ...invoiceData } = body;
+
+        // Check if only updating payment info (allowed for receptionist)
+        const paymentFields = ['paid_amount', 'payment_status', 'payment_method', 'card_type'];
+        const isPaymentOnlyUpdate = Object.keys(invoiceData).every(key =>
+          paymentFields.includes(key) || key === 'updated_at'
+        );
+
+        if (isPaymentOnlyUpdate) {
+          canManagePayments(auth);
+        } else {
+          adminAndCustomerService(auth);
+        }
 
         const { data, error } = await supabase
           .from("invoices")

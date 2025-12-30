@@ -451,12 +451,83 @@ See `EDGE_FUNCTION_FIX.md` for full details
 
 ---
 
+## 🔐 إصلاح إضافي: صلاحيات موظف الاستقبال
+
+### 6️⃣ خطأ صلاحيات موظف الاستقبال | Receptionist Permission Error
+
+**المشكلة | Problem:**
+- بعد إصلاح Edge Function، ظهر خطأ جديد: "البيانات المطلوبة غير موجودة"
+- After Edge Function fix, new error appeared: "Requested data not found"
+- موظف الاستقبال لا يمكنه تحديث معلومات الدفع
+- Receptionist cannot update payment information
+
+**السبب | Root Cause:**
+- Edge Function يطلب صلاحيات Admin أو Customer Service فقط
+- Edge Function requires Admin or Customer Service permissions only
+```typescript
+adminAndCustomerService(auth);  // ❌ لا يشمل Receptionist
+```
+
+**الحل | Solution:**
+1. إضافة دالة `canManagePayments()` تسمح لـ Admin, CS, Receptionist
+   - Added `canManagePayments()` allowing Admin, CS, Receptionist
+2. فحص نوع التحديث: معلومات دفع فقط أم حقول أخرى
+   - Check update type: payment info only vs other fields
+3. استخدام الصلاحية المناسبة حسب نوع التحديث
+   - Use appropriate permission based on update type
+
+**الكود | Code:**
+```typescript
+// فحص نوع التحديث
+const paymentFields = ['paid_amount', 'payment_status', 'payment_method', 'card_type'];
+const isPaymentOnlyUpdate = Object.keys(invoiceData).every(key =>
+  paymentFields.includes(key) || key === 'updated_at'
+);
+
+if (isPaymentOnlyUpdate) {
+  canManagePayments(auth);  // ✅ Admin, CS, Receptionist
+} else {
+  adminAndCustomerService(auth);  // ✅ Admin, CS فقط
+}
+```
+
+**الملفات المعدلة | Modified Files:**
+```
+supabase/functions/_shared/middleware/authorize.ts (lines 66-68)
+supabase/functions/invoices/index.ts (lines 4, 162-172)
+```
+
+**مصفوفة الصلاحيات | Permissions Matrix:**
+| الدور | تحديث الدفع | تحديث المبالغ |
+|-------|-------------|--------------|
+| Admin | ✅ | ✅ |
+| Customer Service | ✅ | ✅ |
+| Receptionist | ✅ | ❌ |
+
+**الأمان | Security:**
+- ✅ موظف الاستقبال يمكنه تحديث معلومات الدفع فقط
+- ✅ Receptionist can only update payment information
+- ❌ لا يمكنه تعديل المبالغ الأساسية (subtotal, total, tax)
+- ❌ Cannot modify base amounts (subtotal, total, tax)
+
+**التوثيق الكامل | Full Documentation:**
+راجع ملف `RECEPTIONIST_PAYMENT_FIX.md` للتفاصيل
+
+See `RECEPTIONIST_PAYMENT_FIX.md` for details
+
+**إعادة التشغيل | Restart:**
+- ✅ تم إعادة تشغيل جميع Edge Functions
+- ✅ All Edge Functions restarted
+
+---
+
 **تاريخ الإصلاح:** 30 ديسمبر 2024
 **الحالة:** ✅ مكتمل وجاهز للإنتاج
-**الإصدار:** 2.1.1
-**Build Status:** ✅ Success (7.54s)
+**الإصدار:** 2.2.0
+**Build Status:** ✅ Success (8.50s)
 **Translation Keys:** 930 (AR + EN)
 **Edge Functions:** ✅ All Working
+**Permissions:** ✅ Smart & Secure
 
 ---
 
@@ -465,6 +536,8 @@ See `EDGE_FUNCTION_FIX.md` for full details
 **قبل | Before:**
 - ❌ تحديث الدفع لا يعمل
 - ❌ خطأ "Cannot coerce..." في Edge Function
+- ❌ خطأ "البيانات المطلوبة غير موجودة"
+- ❌ موظف الاستقبال لا يمكنه تحديث الدفع
 - ❌ طلب الصيانة لا يظهر
 - ❌ عناصر فارغة
 - ❌ نصوص غير مترجمة
@@ -472,7 +545,9 @@ See `EDGE_FUNCTION_FIX.md` for full details
 **بعد | After:**
 - ✅ تحديث الدفع يعمل بشكل مثالي (Frontend + Backend)
 - ✅ Edge Function محسّن مع `.maybeSingle()`
-- ✅ رسائل خطأ واضحة: "Invoice not found or you don't have permission"
+- ✅ صلاحيات ذكية: موظف الاستقبال يمكنه تحديث الدفع فقط
+- ✅ الأمان محفوظ: لا يمكن تعديل المبالغ الأساسية
+- ✅ رسائل خطأ واضحة ومفهومة
 - ✅ طلب الصيانة يظهر بوضوح (رقم + وصف)
 - ✅ عناصر الفاتورة تُعرض بشكل صحيح
 - ✅ جميع النصوص مترجمة (930 مفتاح)
