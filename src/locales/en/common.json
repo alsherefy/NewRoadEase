@@ -258,7 +258,12 @@
     "tax_inclusive": "Tax Inclusive",
     "tax_exclusive": "Tax Exclusive",
     "discount_percentage": "Discount Percentage",
-    "print": "Print"
+    "print": "Print",
+    "edit_invoice": "Edit Invoice",
+    "edit_invoice_desc": "Update invoice data and payment",
+    "item_description_placeholder": "e.g., Maintenance service, Spare part...",
+    "payment_info": "Payment Information",
+    "work_order_number": "Work Order Number"
   },
   "inventory": {
     "title": "Inventory",

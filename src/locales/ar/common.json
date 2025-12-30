@@ -258,7 +258,12 @@
     "tax_inclusive": "شاملة للضريبة",
     "tax_exclusive": "غير شاملة للضريبة",
     "discount_percentage": "نسبة الخصم",
-    "print": "طباعة"
+    "print": "طباعة",
+    "edit_invoice": "تعديل الفاتورة",
+    "edit_invoice_desc": "تحديث بيانات الفاتورة والدفع",
+    "item_description_placeholder": "مثال: خدمة صيانة، قطعة غيار...",
+    "payment_info": "معلومات الدفع",
+    "work_order_number": "رقم طلب الصيانة"
   },
   "inventory": {
     "title": "المخزون",

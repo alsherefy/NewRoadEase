@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Printer, CheckCircle, XCircle, Clock, Edit, CreditCard, Banknote } from 'lucide-react';
+import { ArrowRight, Printer, CheckCircle, XCircle, Clock, Edit, CreditCard, Banknote, FileText } from 'lucide-react';
 import { settingsService, invoicesService, ServiceError } from '../services';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
@@ -31,6 +31,12 @@ interface Invoice {
   card_type?: 'mada' | 'visa';
   notes: string;
   created_at: string;
+}
+
+interface WorkOrder {
+  id: string;
+  order_number: string;
+  description: string;
 }
 
 interface InvoiceItem {
@@ -73,6 +79,7 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [workshop, setWorkshop] = useState<WorkshopSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingPayment, setEditingPayment] = useState(false);
@@ -122,6 +129,16 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
 
         setVehicle(vehicleData);
       }
+
+      if (invoiceData.work_order_id) {
+        const { data: workOrderData } = await supabase
+          .from('work_orders')
+          .select('id, order_number, description')
+          .eq('id', invoiceData.work_order_id)
+          .single();
+
+        setWorkOrder(workOrderData);
+      }
     } catch (error) {
       console.error('Error fetching invoice:', error);
     } finally {
@@ -155,24 +172,23 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
     }
 
     try {
-      const { error } = await supabase
-        .from('invoices')
-        .update({
-          paid_amount: newPaidAmount,
-          payment_status: paymentStatus,
-          payment_method: newPaymentMethod,
-          card_type: newPaymentMethod === 'card' ? newCardType : null
-        })
-        .eq('id', invoiceId);
-
-      if (error) throw error;
+      await invoicesService.updateInvoice(invoiceId, {
+        paid_amount: newPaidAmount,
+        payment_status: paymentStatus,
+        payment_method: newPaymentMethod,
+        card_type: newPaymentMethod === 'card' ? newCardType : null
+      });
 
       toast.success(t('invoices.success_updated'));
       setEditingPayment(false);
       fetchInvoiceDetails();
     } catch (error) {
       console.error('Error updating payment:', error);
-      toast.error(t('invoices.error_update'));
+      if (error instanceof ServiceError) {
+        toast.error(error.message);
+      } else {
+        toast.error(t('invoices.error_update'));
+      }
     }
   };
 
@@ -316,6 +332,21 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
               </div>
             </div>
           </div>
+
+          {workOrder && (
+            <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl mb-6 print:mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <h3 className="text-sm font-bold text-blue-900">{t('work_orders.title')}</h3>
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <p className="text-blue-900"><span className="font-semibold">{t('invoices.work_order_number')}:</span> {workOrder.order_number}</p>
+                {workOrder.description && (
+                  <p className="text-blue-800"><span className="font-semibold">{t('services.description')}:</span> {workOrder.description}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-6 mb-6 print:gap-4 print:mb-4">
             <div className="bg-gray-50 p-4 rounded-xl print:p-3">
@@ -509,7 +540,10 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100 no-print">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">{t('invoices.payment_management')}</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <CreditCard className="h-5 w-5 text-blue-600" />
+          <h3 className="text-xl font-bold text-gray-900">{t('invoices.payment_info')}</h3>
+        </div>
 
         {editingPayment ? (
           <div className="space-y-6">
