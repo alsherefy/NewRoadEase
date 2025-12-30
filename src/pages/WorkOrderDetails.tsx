@@ -161,7 +161,13 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
 
       const { data: workOrderParts } = await supabase
         .from('work_order_spare_parts')
-        .select('*')
+        .select(`
+          *,
+          spare_part:spare_parts(
+            name,
+            part_number
+          )
+        `)
         .eq('work_order_id', orderId);
 
       const partsTotal = (workOrderParts || []).reduce((sum, part) => sum + Number(part.total), 0);
@@ -227,10 +233,10 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
         total: Number(service.labor_cost) || 0
       }));
 
-      const partItems = (workOrderParts || []).map(part => ({
+      const partItems = (workOrderParts || []).map((part: any) => ({
         invoice_id: invoice.id,
         item_type: 'part',
-        description: '',
+        description: part.spare_part?.name || t('work_orders.spare_part'),
         quantity: Number(part.quantity),
         unit_price: Number(part.unit_price),
         total: Number(part.total),
