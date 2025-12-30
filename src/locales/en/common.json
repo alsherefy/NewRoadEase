@@ -267,7 +267,9 @@
     "payment_info": "Payment Information",
     "work_order_number": "Work Order Number",
     "payment_method": "Payment Method",
-    "notes_placeholder": "Additional notes about the invoice..."
+    "notes_placeholder": "Additional notes about the invoice...",
+    "customer_info": "Customer Information",
+    "vehicle_info": "Vehicle Information"
   },
   "inventory": {
     "title": "Inventory",

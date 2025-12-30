@@ -56,9 +56,28 @@
   body {
     margin: 0;
     padding: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   @page {
-    margin: 1cm;
+    size: A4;
+    margin: 1.5cm 1cm;
+  }
+
+  /* Optimize text for printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Prevent page breaks inside elements */
+  table, figure, img, tr, td {
+    page-break-inside: avoid;
+  }
+
+  /* Better spacing for print */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
   }
 }

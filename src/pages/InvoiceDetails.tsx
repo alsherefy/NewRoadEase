@@ -376,23 +376,23 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
           </div>
 
           {workOrder && (
-            <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl mb-6 print:mb-4">
+            <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl mb-6 print:mb-4 print:bg-white print:border print:border-gray-300">
               <div className="flex items-center gap-2 mb-3">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <h3 className="text-sm font-bold text-blue-900">{t('work_orders.title')}</h3>
+                <FileText className="h-5 w-5 text-blue-600 print:text-gray-700" />
+                <h3 className="text-sm font-bold text-blue-900 print:text-gray-900">{t('work_orders.title')}</h3>
               </div>
               <div className="space-y-1.5 text-sm">
-                <p className="text-blue-900"><span className="font-semibold">{t('invoices.work_order_number')}:</span> {workOrder.order_number}</p>
+                <p className="text-blue-900 print:text-gray-900"><span className="font-semibold">{t('invoices.work_order_number')}:</span> {workOrder.order_number}</p>
                 {workOrder.description && (
-                  <p className="text-blue-800"><span className="font-semibold">{t('services.description')}:</span> {workOrder.description}</p>
+                  <p className="text-blue-800 print:text-gray-700"><span className="font-semibold">{t('services.description')}:</span> {workOrder.description}</p>
                 )}
               </div>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-6 mb-6 print:gap-4 print:mb-4">
-            <div className="bg-gray-50 p-4 rounded-xl print:p-3">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 print:mb-2">{t('customers.title')}</h3>
+            <div className="bg-gray-50 p-4 rounded-xl print:p-3 print:bg-white print:border print:border-gray-300">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 print:mb-2">{t('invoices.customer_info')}</h3>
               {customer && (
                 <div className="space-y-1.5 text-sm">
                   <p className="font-bold text-gray-900">{customer.name}</p>
@@ -402,8 +402,8 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
               )}
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-xl print:p-3">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 print:mb-2">{t('vehicles.vehicle_info')}</h3>
+            <div className="bg-gray-50 p-4 rounded-xl print:p-3 print:bg-white print:border print:border-gray-300">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 print:mb-2">{t('invoices.vehicle_info')}</h3>
               {vehicle ? (
                 <div className="space-y-1.5 text-sm">
                   <p className="font-bold text-gray-900">{vehicle.car_make} {vehicle.car_model}</p>
@@ -421,7 +421,7 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
             <div className="overflow-hidden border border-gray-200 rounded-xl">
               <table className="w-full">
                 <thead>
-                  <tr className={`text-white text-sm ${isTaxInvoice ? 'bg-blue-600' : 'bg-gray-700'}`}>
+                  <tr className={`text-sm ${isTaxInvoice ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'} print:bg-white print:text-gray-900 print:border-b-2 print:border-gray-400`}>
                     <th className="text-right py-3 px-4 font-bold print:py-2">{t('services.description')}</th>
                     <th className="text-center py-3 px-4 font-bold print:py-2">{t('common.type')}</th>
                     <th className="text-center py-3 px-4 font-bold print:py-2">{t('invoices.quantity')}</th>
@@ -431,14 +431,14 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {items.map((item, index) => (
-                    <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} print:bg-white`}>
                       <td className="py-3 px-4 text-gray-900 font-medium text-sm print:py-2">{item.description}</td>
                       <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">
                         <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
                           item.item_type === 'service'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-green-100 text-green-700'
-                        }`}>
+                        } print:bg-white print:text-gray-900 print:border print:border-gray-400`}>
                           {item.item_type === 'service' ? t('services.service_type') : t('work_orders.spare_parts')}
                         </span>
                       </td>
@@ -460,7 +460,7 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
               <div className="overflow-hidden border border-gray-200 rounded-xl">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-green-600 text-white text-sm">
+                    <tr className="bg-green-600 text-white text-sm print:bg-white print:text-gray-900 print:border-b-2 print:border-gray-400">
                       <th className="text-right py-3 px-4 font-bold print:py-2">{t('inventory.part_name')}</th>
                       <th className="text-center py-3 px-4 font-bold print:py-2">{t('inventory.part_number')}</th>
                       <th className="text-center py-3 px-4 font-bold print:py-2">{t('invoices.quantity')}</th>
@@ -470,10 +470,10 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {spareParts.map((part, index) => (
-                      <tr key={part.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr key={part.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} print:bg-white`}>
                         <td className="py-3 px-4 text-gray-900 font-medium text-sm print:py-2">{part.name}</td>
                         <td className="text-center py-3 px-4 text-gray-700 text-sm print:py-2">
-                          <span className="px-2 py-1 bg-gray-100 rounded-lg text-xs font-mono">
+                          <span className="px-2 py-1 bg-gray-100 rounded-lg text-xs font-mono print:bg-white print:border print:border-gray-400">
                             {part.part_number}
                           </span>
                         </td>
@@ -492,7 +492,7 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
 
           <div className="flex justify-end mb-6 print:mb-4">
             <div className="w-96 space-y-2 print:w-80">
-              <div className="flex justify-between items-center py-2 px-4 bg-gray-100 rounded-lg">
+              <div className="flex justify-between items-center py-2 px-4 bg-gray-100 rounded-lg print:bg-white print:border print:border-gray-300">
                 <span className="text-sm font-semibold text-gray-700">{t('invoices.subtotal')}:</span>
                 <span className="font-bold text-gray-900">
                   {formatToFixed(Number(invoice.subtotal) + Number(invoice.discount_amount))} {t('common.sar')}
@@ -500,43 +500,43 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
               </div>
 
               {Number(invoice.discount_percentage) > 0 && (
-                <div className="flex justify-between items-center py-2 px-4 bg-red-50 border border-red-200 rounded-lg">
-                  <span className="text-sm font-semibold text-red-700">{t('invoices.discount')} ({toEnglishDigits(Number(invoice.discount_percentage))}%):</span>
-                  <span className="font-bold text-red-700">- {formatToFixed(Number(invoice.discount_amount))} {t('common.sar')}</span>
+                <div className="flex justify-between items-center py-2 px-4 bg-red-50 border border-red-200 rounded-lg print:bg-white print:border print:border-gray-300">
+                  <span className="text-sm font-semibold text-red-700 print:text-gray-700">{t('invoices.discount')} ({toEnglishDigits(Number(invoice.discount_percentage))}%):</span>
+                  <span className="font-bold text-red-700 print:text-gray-900">- {formatToFixed(Number(invoice.discount_amount))} {t('common.sar')}</span>
                 </div>
               )}
 
               {isTaxInvoice && (
                 <>
                   {invoice.tax_type === 'inclusive' ? (
-                    <div className="space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-center justify-center gap-2 mb-2 pb-2 border-b border-blue-200">
-                        <span className="text-xs font-bold text-blue-900 uppercase">{t('invoices.tax_inclusive')}</span>
+                    <div className="space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-lg print:bg-white print:border print:border-gray-300">
+                      <div className="flex items-center justify-center gap-2 mb-2 pb-2 border-b border-blue-200 print:border-gray-300">
+                        <span className="text-xs font-bold text-blue-900 uppercase print:text-gray-900">{t('invoices.tax_inclusive')}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-blue-700">{t('invoices.grand_total')}:</span>
-                        <span className="font-semibold text-blue-900">{formatToFixed(Number(invoice.total))} {t('common.sar')}</span>
+                        <span className="text-sm font-medium text-blue-700 print:text-gray-700">{t('invoices.grand_total')}:</span>
+                        <span className="font-semibold text-blue-900 print:text-gray-900">{formatToFixed(Number(invoice.total))} {t('common.sar')}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-blue-700">{t('invoices.subtotal')}:</span>
-                        <span className="font-semibold text-blue-900">{formatToFixed(Number(invoice.subtotal))} {t('common.sar')}</span>
+                        <span className="text-sm font-medium text-blue-700 print:text-gray-700">{t('invoices.subtotal')}:</span>
+                        <span className="font-semibold text-blue-900 print:text-gray-900">{formatToFixed(Number(invoice.subtotal))} {t('common.sar')}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-blue-700">{t('invoices.tax')} ({toEnglishDigits(Number(invoice.tax_rate))}%):</span>
-                        <span className="font-semibold text-blue-900">{formatToFixed(Number(invoice.tax_amount))} {t('common.sar')}</span>
+                        <span className="text-sm font-medium text-blue-700 print:text-gray-700">{t('invoices.tax')} ({toEnglishDigits(Number(invoice.tax_rate))}%):</span>
+                        <span className="font-semibold text-blue-900 print:text-gray-900">{formatToFixed(Number(invoice.tax_amount))} {t('common.sar')}</span>
                       </div>
                     </div>
                   ) : (
                     <>
                       {Number(invoice.discount_percentage) > 0 && (
-                        <div className="flex justify-between items-center py-2 px-4 bg-gray-100 rounded-lg">
+                        <div className="flex justify-between items-center py-2 px-4 bg-gray-100 rounded-lg print:bg-white print:border print:border-gray-300">
                           <span className="text-sm font-semibold text-gray-700">{t('invoices.subtotal')}:</span>
                           <span className="font-bold text-gray-900">{formatToFixed(Number(invoice.subtotal))} {t('common.sar')}</span>
                         </div>
                       )}
-                      <div className="flex justify-between items-center py-2 px-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <span className="text-sm font-semibold text-blue-700">{t('invoices.tax')} ({toEnglishDigits(Number(invoice.tax_rate))}%):</span>
-                        <span className="font-bold text-blue-700">{formatToFixed(Number(invoice.tax_amount))} {t('common.sar')}</span>
+                      <div className="flex justify-between items-center py-2 px-4 bg-blue-50 border border-blue-200 rounded-lg print:bg-white print:border print:border-gray-300">
+                        <span className="text-sm font-semibold text-blue-700 print:text-gray-700">{t('invoices.tax')} ({toEnglishDigits(Number(invoice.tax_rate))}%):</span>
+                        <span className="font-bold text-blue-700 print:text-gray-900">{formatToFixed(Number(invoice.tax_amount))} {t('common.sar')}</span>
                       </div>
                     </>
                   )}
@@ -545,31 +545,31 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
 
               <div className={`flex justify-between items-center py-4 px-4 rounded-xl ${
                 isTaxInvoice ? 'bg-gradient-to-r from-blue-600 to-blue-700' : 'bg-gradient-to-r from-gray-700 to-gray-800'
-              } text-white print:py-3`}>
+              } text-white print:py-3 print:bg-white print:text-gray-900 print:border-2 print:border-gray-900`}>
                 <span className="text-lg font-bold print:text-base">{t('invoices.grand_total')}:</span>
                 <span className="text-2xl font-bold print:text-xl">{formatToFixed(Number(invoice.total))} {t('common.sar')}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-4">
-                <div className="py-2 px-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-xs text-green-700 font-medium mb-1">{t('invoices.amount_paid')}</p>
-                  <p className="text-lg font-bold text-green-900 print:text-base">{formatToFixed(Number(invoice.paid_amount))} {t('common.sar')}</p>
+                <div className="py-2 px-4 bg-green-50 border border-green-200 rounded-lg print:bg-white print:border print:border-gray-300">
+                  <p className="text-xs text-green-700 font-medium mb-1 print:text-gray-700">{t('invoices.amount_paid')}</p>
+                  <p className="text-lg font-bold text-green-900 print:text-base print:text-gray-900">{formatToFixed(Number(invoice.paid_amount))} {t('common.sar')}</p>
                 </div>
                 <div className={`py-2 px-4 rounded-lg border ${
                   Number(invoice.total) - Number(invoice.paid_amount) > 0
                     ? 'bg-red-50 border-red-200'
                     : 'bg-gray-50 border-gray-200'
-                }`}>
+                } print:bg-white print:border print:border-gray-300`}>
                   <p className={`text-xs font-medium mb-1 ${
                     Number(invoice.total) - Number(invoice.paid_amount) > 0
                       ? 'text-red-700'
                       : 'text-gray-700'
-                  }`}>{t('invoices.remaining_amount')}</p>
+                  } print:text-gray-700`}>{t('invoices.remaining_amount')}</p>
                   <p className={`text-lg font-bold print:text-base ${
                     Number(invoice.total) - Number(invoice.paid_amount) > 0
                       ? 'text-red-900'
                       : 'text-gray-900'
-                  }`}>
+                  } print:text-gray-900`}>
                     {formatToFixed(Number(invoice.total) - Number(invoice.paid_amount))} {t('common.sar')}
                   </p>
                 </div>
@@ -583,7 +583,7 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
                 <h3 className="text-sm font-bold text-gray-900 mb-2">{t('common.payment_method')}</h3>
                 <div className="text-sm font-medium">{getPaymentMethodLabel(invoice.payment_method, invoice.card_type)}</div>
               </div>
-              {invoice.notes && (
+              {invoice.notes && !invoice.notes.includes('إنشاء فاتورة تلقائياً') && !invoice.notes.includes('Auto-generate invoice') && (
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 mb-2">{t('common.notes')}</h3>
                   <p className="text-sm text-gray-700">{invoice.notes}</p>
@@ -593,9 +593,9 @@ export function InvoiceDetails({ invoiceId, onBack }: InvoiceDetailsProps) {
           </div>
 
           {isTaxInvoice && (
-            <div className="border-t-2 border-blue-200 pt-4 mb-4 print:pt-3 print:mb-3">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-900 font-semibold text-center">
+            <div className="border-t-2 border-blue-200 pt-4 mb-4 print:pt-3 print:mb-3 print:border-gray-300">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 print:bg-white print:border print:border-gray-300">
+                <p className="text-xs text-blue-900 font-semibold text-center print:text-gray-700">
                   {t('invoices.tax_invoice_disclaimer')}
                 </p>
               </div>

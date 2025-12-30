@@ -267,7 +267,9 @@
     "payment_info": "معلومات الدفع",
     "work_order_number": "رقم طلب الصيانة",
     "payment_method": "طريقة الدفع",
-    "notes_placeholder": "ملاحظات إضافية عن الفاتورة..."
+    "notes_placeholder": "ملاحظات إضافية عن الفاتورة...",
+    "customer_info": "بيانات العميل",
+    "vehicle_info": "بيانات المركبة"
   },
   "inventory": {
     "title": "المخزون",
