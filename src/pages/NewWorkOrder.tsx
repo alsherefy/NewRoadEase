@@ -310,7 +310,10 @@ export function NewWorkOrder({ orderId, onBack, onSuccess }: NewWorkOrderProps) 
 
         toast.success(t('work_orders.success_updated'));
       } else {
-        const orderNumber = `WO-${Date.now()}`;
+        const { data: orderNumber, error: numberError } = await supabase
+          .rpc('generate_work_order_number');
+
+        if (numberError) throw numberError;
 
         const { data: workOrder, error: orderError } = await supabase
           .from('work_orders')
