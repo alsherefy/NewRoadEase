@@ -36,17 +36,27 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
   async function loadPermissions() {
     try {
-      const { data: allPermsData, error: permsError } = await supabase
-        .from('permissions')
-        .select('*')
-        .eq('is_active', true)
-        .order('resource')
-        .order('display_order');
+      const [allPermsResult, userOverridesResult] = await Promise.all([
+        supabase
+          .from('permissions')
+          .select('*')
+          .eq('is_active', true)
+          .order('resource')
+          .order('display_order'),
+        supabase
+          .from('user_permission_overrides')
+          .select('permission_id, is_granted')
+          .eq('user_id', user.id)
+          .eq('is_granted', true)
+          .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+      ]);
 
-      if (permsError) throw permsError;
+      if (allPermsResult.error) throw allPermsResult.error;
 
-      setPermissions(allPermsData || []);
-      setSelectedPermissionIds([]);
+      setPermissions(allPermsResult.data || []);
+
+      const grantedPermissionIds = (userOverridesResult.data || []).map(o => o.permission_id);
+      setSelectedPermissionIds(grantedPermissionIds);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast.error(t('permissions.error_loading'));
