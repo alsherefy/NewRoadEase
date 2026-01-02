@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { usersService } from '../services';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
@@ -19,7 +20,6 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { UserPermissionsCard } from '../components/UserPermissionsCard';
 import AuditLogs from './AuditLogs';
 
 type TabType = 'users' | 'audit';
@@ -38,6 +38,7 @@ export function Users() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const [activeTab, setActiveTab] = useState<TabType>('users');
   const [users, setUsers] = useState<User[]>([]);
@@ -46,8 +47,6 @@ export function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showPermissionsCard, setShowPermissionsCard] = useState(false);
-  const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [passwordFormData, setPasswordFormData] = useState({
     user_id: '',
     new_password: '',
@@ -151,19 +150,8 @@ export function Users() {
     }
   }
 
-  function togglePermissionsCard(user: User | null) {
-    if (user) {
-      setPermissionsUser(user);
-      setShowPermissionsCard(true);
-    } else {
-      setPermissionsUser(null);
-      setShowPermissionsCard(false);
-    }
-  }
-
-  async function handlePermissionsSaved() {
-    await loadUsers();
-    togglePermissionsCard(null);
+  function openPermissionsPage(userId: string) {
+    navigate(`/users/${userId}/permissions`);
   }
 
   function openPasswordModal(user: User) {
@@ -317,12 +305,12 @@ export function Users() {
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {users.map((user) => (
-            <div key={user.id} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1">
-                <div className="bg-white rounded-xl shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all"
-                >
+            <div
+              key={user.id}
+              className="bg-white rounded-xl shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all"
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div
@@ -408,17 +396,11 @@ export function Users() {
 
               {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
                 <button
-                  onClick={() => togglePermissionsCard(showPermissionsCard && permissionsUser?.id === user.id ? null : user)}
-                  className={`w-full mb-3 px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
-                    showPermissionsCard && permissionsUser?.id === user.id
-                      ? 'bg-gradient-to-r from-green-700 to-green-800 text-white'
-                      : 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800'
-                  }`}
+                  onClick={() => openPermissionsPage(user.id)}
+                  className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
                 >
                   <Shield className="h-4 w-4" />
-                  {showPermissionsCard && permissionsUser?.id === user.id
-                    ? t('users.hide_permissions')
-                    : t('users.manage_permissions')}
+                  {t('users.manage_permissions')}
                 </button>
               )}
 
@@ -431,19 +413,6 @@ export function Users() {
                   {t('common.delete')}
                 </button>
               </div>
-                </div>
-              </div>
-
-              {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
-                <div className="lg:col-span-2">
-                  {showPermissionsCard && permissionsUser?.id === user.id && (
-                    <UserPermissionsCard
-                      user={user}
-                      onSave={handlePermissionsSaved}
-                    />
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>

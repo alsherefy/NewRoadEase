@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { Navbar } from './components/Navbar';
@@ -15,31 +15,13 @@ import { Reports } from './pages/Reports';
 import { Inventory } from './pages/Inventory';
 import { Expenses } from './pages/Expenses';
 import { Users } from './pages/Users';
+import UserPermissions from './pages/UserPermissions';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import { Loader } from 'lucide-react';
 
-type ViewType =
-  | 'dashboard'
-  | 'customers'
-  | 'technicians'
-  | 'work-orders'
-  | 'new-work-order'
-  | 'work-order-details'
-  | 'invoices'
-  | 'new-invoice'
-  | 'invoice-details'
-  | 'inventory'
-  | 'expenses'
-  | 'reports'
-  | 'users'
-  | 'settings';
-
-function AppContent() {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<ViewType>('dashboard');
-  const [selectedOrderId, setSelectedOrderId] = useState<string>('');
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
 
   if (loading) {
     return (
@@ -53,129 +35,61 @@ function AppContent() {
   }
 
   if (!user) {
-    return <Login />;
+    return <Navigate to="/login" replace />;
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'customers':
-        return <Customers />;
-      case 'technicians':
-        return <Technicians />;
-      case 'work-orders':
-        return (
-          <WorkOrders
-            onNewOrder={() => {
-              setSelectedOrderId('');
-              setActiveTab('new-work-order');
-            }}
-            onViewOrder={(orderId) => {
-              setSelectedOrderId(orderId);
-              setActiveTab('work-order-details');
-            }}
-            onEditOrder={(orderId) => {
-              setSelectedOrderId(orderId);
-              setActiveTab('new-work-order');
-            }}
-          />
-        );
-      case 'new-work-order':
-        return (
-          <NewWorkOrder
-            orderId={selectedOrderId}
-            onBack={() => {
-              setSelectedOrderId('');
-              setActiveTab('work-orders');
-            }}
-            onSuccess={() => {
-              setSelectedOrderId('');
-              setActiveTab('work-orders');
-            }}
-          />
-        );
-      case 'work-order-details':
-        return (
-          <WorkOrderDetails
-            orderId={selectedOrderId}
-            onBack={() => setActiveTab('work-orders')}
-            onViewInvoice={(invoiceId) => {
-              setSelectedInvoiceId(invoiceId);
-              setActiveTab('invoice-details');
-            }}
-          />
-        );
-      case 'invoices':
-        return (
-          <Invoices
-            onNewInvoice={() => {
-              setSelectedInvoiceId('');
-              setActiveTab('new-invoice');
-            }}
-            onViewInvoice={(invoiceId) => {
-              setSelectedInvoiceId(invoiceId);
-              setActiveTab('invoice-details');
-            }}
-            onEditInvoice={(invoiceId) => {
-              setSelectedInvoiceId(invoiceId);
-              setActiveTab('new-invoice');
-            }}
-          />
-        );
-      case 'new-invoice':
-        return (
-          <NewInvoice
-            invoiceId={selectedInvoiceId}
-            onBack={() => {
-              setSelectedInvoiceId('');
-              setActiveTab('invoices');
-            }}
-            onSuccess={() => {
-              setSelectedInvoiceId('');
-              setActiveTab('invoices');
-            }}
-          />
-        );
-      case 'invoice-details':
-        return (
-          <InvoiceDetails
-            invoiceId={selectedInvoiceId}
-            onBack={() => setActiveTab('invoices')}
-          />
-        );
-      case 'inventory':
-        return <Inventory />;
-      case 'expenses':
-        return <Expenses />;
-      case 'reports':
-        return <Reports />;
-      case 'users':
-        return <Users />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  return <>{children}</>;
+}
 
+function AppContent() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <Navbar activeTab={activeTab} setActiveTab={(tab) => setActiveTab(tab as ViewType)} />
-      <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
-        {renderContent()}
-      </main>
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+              <Navbar />
+              <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/customers" element={<Customers />} />
+                  <Route path="/technicians" element={<Technicians />} />
+                  <Route path="/work-orders" element={<WorkOrders />} />
+                  <Route path="/work-orders/new" element={<NewWorkOrder />} />
+                  <Route path="/work-orders/:orderId" element={<WorkOrderDetails />} />
+                  <Route path="/work-orders/:orderId/edit" element={<NewWorkOrder />} />
+                  <Route path="/invoices" element={<Invoices />} />
+                  <Route path="/invoices/new" element={<NewInvoice />} />
+                  <Route path="/invoices/:invoiceId" element={<InvoiceDetails />} />
+                  <Route path="/invoices/:invoiceId/edit" element={<NewInvoice />} />
+                  <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/expenses" element={<Expenses />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/users" element={<Users />} />
+                  <Route path="/users/:userId/permissions" element={<UserPermissions />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </main>
+            </div>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
