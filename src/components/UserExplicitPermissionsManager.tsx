@@ -174,7 +174,9 @@ export function UserExplicitPermissionsManager({ user, onClose, onSave }: UserEx
       toast.success(t('permissions.success_saved'));
 
       if (currentUser?.id === user.id) {
-        await refreshPermissions();
+        setTimeout(async () => {
+          await refreshPermissions();
+        }, 500);
       }
 
       onSave();

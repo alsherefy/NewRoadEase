@@ -93,14 +93,24 @@ Deno.serve(async (req: Request) => {
         }
 
         if (userId && action === 'permission-overrides') {
-          const { data, error } = await supabase
-            .from('user_permission_overrides')
-            .select('permission_id, is_granted')
-            .eq('user_id', userId)
-            .eq('is_granted', true);
+          const { data: allPerms, error: permsError } = await supabase
+            .rpc('get_user_all_permissions', { p_user_id: userId });
 
-          if (error) throw new Error(error.message);
-          return successResponse(data || []);
+          if (permsError) throw new Error(permsError.message);
+
+          const { data: permissionsData, error: permError } = await supabase
+            .from('permissions')
+            .select('id, key')
+            .eq('is_active', true);
+
+          if (permError) throw new Error(permError.message);
+
+          const userPermissionKeys = new Set((allPerms || []).map((p: any) => p.permission_key));
+          const selectedPermissions = (permissionsData || [])
+            .filter((p: any) => userPermissionKeys.has(p.key))
+            .map((p: any) => ({ permission_id: p.id, is_granted: true }));
+
+          return successResponse(selectedPermissions);
         }
 
         if (userId) {
@@ -223,6 +233,31 @@ Deno.serve(async (req: Request) => {
             throw new Error('permission_ids must be an array');
           }
 
+          const selectedPermissionIds = new Set(permission_ids);
+
+          const { data: allPermissions, error: permError } = await supabase
+            .from('permissions')
+            .select('id')
+            .eq('is_active', true);
+
+          if (permError) throw new Error(permError.message);
+
+          const { data: userRolesData } = await supabase
+            .rpc('get_user_roles', { p_user_id: userId });
+
+          let rolePermissionIds = new Set<string>();
+          if (userRolesData && userRolesData.length > 0) {
+            const roleIds = userRolesData.map((ur: any) => ur.role.id);
+            const { data: rolePerms } = await supabase
+              .from('role_permissions')
+              .select('permission_id')
+              .in('role_id', roleIds);
+
+            if (rolePerms) {
+              rolePermissionIds = new Set(rolePerms.map((rp: any) => rp.permission_id));
+            }
+          }
+
           const { error: deleteError } = await supabase
             .from('user_permission_overrides')
             .delete()
@@ -230,18 +265,36 @@ Deno.serve(async (req: Request) => {
 
           if (deleteError) throw new Error(deleteError.message);
 
-          if (permission_ids.length > 0) {
-            const permissionsToInsert = permission_ids.map((permissionId: string) => ({
-              user_id: userId,
-              permission_id: permissionId,
-              is_granted: true,
-              granted_by: auth.userId,
-              reason: 'Explicit permission assignment by administrator'
-            }));
+          const overridesToInsert = [];
 
+          for (const perm of allPermissions || []) {
+            const permId = perm.id;
+            const isSelected = selectedPermissionIds.has(permId);
+            const isInRole = rolePermissionIds.has(permId);
+
+            if (isSelected && !isInRole) {
+              overridesToInsert.push({
+                user_id: userId,
+                permission_id: permId,
+                is_granted: true,
+                granted_by: auth.userId,
+                reason: 'Explicit permission grant by administrator'
+              });
+            } else if (!isSelected && isInRole) {
+              overridesToInsert.push({
+                user_id: userId,
+                permission_id: permId,
+                is_granted: false,
+                granted_by: auth.userId,
+                reason: 'Explicit permission revoke by administrator'
+              });
+            }
+          }
+
+          if (overridesToInsert.length > 0) {
             const { error: insertError } = await supabase
               .from('user_permission_overrides')
-              .insert(permissionsToInsert);
+              .insert(overridesToInsert);
 
             if (insertError) throw new Error(insertError.message);
           }
@@ -249,7 +302,8 @@ Deno.serve(async (req: Request) => {
           return successResponse({
             success: true,
             message: 'Permissions updated successfully',
-            count: permission_ids.length
+            count: permission_ids.length,
+            overrides: overridesToInsert.length
           });
         }
 
