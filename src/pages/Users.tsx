@@ -170,7 +170,21 @@ export function Users() {
       setSelectedNewUserPermissions([]);
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error(error.message || t('users.error_create'));
+
+      let errorMessage = t('users.error_create');
+
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+          errorMessage = t('users.error_email_exists');
+        } else if (msg.includes('permission')) {
+          errorMessage = t('users.error_save_permissions');
+        } else if (msg.includes('password')) {
+          errorMessage = t('validation.password_min_length');
+        }
+      }
+
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

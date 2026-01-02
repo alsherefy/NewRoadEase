@@ -661,6 +661,7 @@
     "success_password_changed": "Password changed successfully",
     "success_role_updated": "Role updated successfully",
     "error_create": "An error occurred while creating the user",
+    "error_email_exists": "This email address is already registered, please use a different email",
     "error_update": "An error occurred while updating the user",
     "error_delete": "An error occurred while deleting the user",
     "error_password_change": "An error occurred while changing password",
