@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
-import { Shield, X, Save, CheckSquare, Square, MinusSquare } from 'lucide-react';
+import { X, Save, CheckSquare, Square, MinusSquare } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
@@ -29,7 +29,6 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
-  const [rolePermissionIds, setRolePermissionIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadPermissions();
@@ -37,59 +36,29 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
   async function loadPermissions() {
     try {
-      // جلب جميع الصلاحيات المتاحة
-      const allPermsResult = await supabase
-        .from('permissions')
-        .select('*')
-        .eq('is_active', true)
-        .order('resource')
-        .order('display_order');
+      setLoading(true);
+
+      const [allPermsResult, userPermsResult] = await Promise.all([
+        supabase
+          .from('permissions')
+          .select('*')
+          .eq('is_active', true)
+          .order('resource')
+          .order('display_order'),
+        supabase
+          .from('user_permission_overrides')
+          .select('permission_id')
+          .eq('user_id', user.id)
+          .eq('is_granted', true)
+      ]);
 
       if (allPermsResult.error) throw allPermsResult.error;
+      if (userPermsResult.error) throw userPermsResult.error;
+
       setPermissions(allPermsResult.data || []);
-
-      // جلب الصلاحيات المخصصة للمستخدم
-      const userOverridesResult = await supabase
-        .from('user_permission_overrides')
-        .select('permission_id, is_granted')
-        .eq('user_id', user.id)
-        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
-
-      // جلب الصلاحيات من الدور
-      const { data: rolePermissions } = await supabase
-        .from('user_roles')
-        .select(`
-          role:roles!inner (
-            role_permissions!inner (
-              permission_id
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .single();
-
-      // استخراج IDs من الصلاحيات
-      const rolePerms = rolePermissions?.role?.role_permissions?.map((rp: any) => rp.permission_id) || [];
-      const customOverrides = (userOverridesResult.data || []) as { permission_id: string; is_granted: boolean }[];
-
-      // الصلاحيات المضافة (is_granted = true)
-      const addedPermissions = customOverrides
-        .filter(o => o.is_granted)
-        .map(o => o.permission_id);
-
-      // الصلاحيات المحذوفة (is_granted = false)
-      const revokedPermissions = customOverrides
-        .filter(o => !o.is_granted)
-        .map(o => o.permission_id);
-
-      // حساب الصلاحيات الفعلية = (صلاحيات الدور + المضافة) - المحذوفة
-      const allGrantedIds = [
-        ...rolePerms.filter((id: string) => !revokedPermissions.includes(id)),
-        ...addedPermissions
-      ];
-
-      setRolePermissionIds(rolePerms);
-      setSelectedPermissionIds([...new Set(allGrantedIds)]);
+      setSelectedPermissionIds(
+        (userPermsResult.data || []).map(p => p.permission_id)
+      );
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast.error(t('permissions.error_loading'));
@@ -119,11 +88,14 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
   }
 
   function isResourceFullySelected(resourcePermissions: Permission[]): boolean {
-    return resourcePermissions.length > 0 && resourcePermissions.every(p => selectedPermissionIds.includes(p.id));
+    return resourcePermissions.length > 0 &&
+      resourcePermissions.every(p => selectedPermissionIds.includes(p.id));
   }
 
   function isResourcePartiallySelected(resourcePermissions: Permission[]): boolean {
-    const selectedCount = resourcePermissions.filter(p => selectedPermissionIds.includes(p.id)).length;
+    const selectedCount = resourcePermissions.filter(p =>
+      selectedPermissionIds.includes(p.id)
+    ).length;
     return selectedCount > 0 && selectedCount < resourcePermissions.length;
   }
 
@@ -132,7 +104,9 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
     const permissionIds = resourcePermissions.map(p => p.id);
 
     if (allSelected) {
-      setSelectedPermissionIds(prev => prev.filter(id => !permissionIds.includes(id)));
+      setSelectedPermissionIds(prev =>
+        prev.filter(id => !permissionIds.includes(id))
+      );
     } else {
       setSelectedPermissionIds(prev => {
         const newIds = [...prev];
@@ -148,20 +122,20 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
   function getResourceDisplayName(resource: string): string {
     const resourceNameMap: Record<string, string> = {
-      dashboard: 'لوحة التحكم',
-      customers: 'العملاء',
-      vehicles: 'المركبات',
-      work_orders: 'أوامر العمل',
-      invoices: 'الفواتير',
-      inventory: 'المخزون',
-      expenses: 'المصروفات',
-      salaries: 'الرواتب',
-      technicians: 'الفنيين',
-      reports: 'التقارير',
-      users: 'المستخدمين',
-      roles: 'الأدوار',
-      settings: 'الإعدادات',
-      audit_logs: 'سجلات المراجعة',
+      dashboard: t('nav.dashboard'),
+      customers: t('nav.customers'),
+      vehicles: t('nav.vehicles'),
+      work_orders: t('nav.work_orders'),
+      invoices: t('nav.invoices'),
+      inventory: t('nav.inventory'),
+      expenses: t('nav.expenses'),
+      salaries: t('nav.salaries'),
+      technicians: t('nav.technicians'),
+      reports: t('nav.reports'),
+      users: t('nav.users'),
+      roles: t('nav.roles'),
+      settings: t('nav.settings'),
+      audit_logs: t('nav.audit_logs'),
     };
     return resourceNameMap[resource] || resource;
   }
@@ -174,44 +148,26 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
         throw new Error('No active session');
       }
 
-      // حساب الفرق بين الصلاحيات الحالية والصلاحيات من الدور
-      const addedPermissions = selectedPermissionIds.filter(
-        id => !rolePermissionIds.includes(id)
-      );
-      const revokedPermissions = rolePermissionIds.filter(
-        id => !selectedPermissionIds.includes(id)
-      );
-
-      // حذف جميع الصلاحيات المخصصة القديمة
-      await supabase
+      const { error: deleteError } = await supabase
         .from('user_permission_overrides')
         .delete()
         .eq('user_id', user.id);
 
-      // إضافة الصلاحيات المخصصة الجديدة
-      const overridesToInsert = [
-        ...addedPermissions.map(permissionId => ({
+      if (deleteError) throw deleteError;
+
+      if (selectedPermissionIds.length > 0) {
+        const permissionsToInsert = selectedPermissionIds.map(permissionId => ({
           user_id: user.id,
           permission_id: permissionId,
           is_granted: true,
-          granted_by: session.session.user.id,
-          reason: 'Additional permission granted'
-        })),
-        ...revokedPermissions.map(permissionId => ({
-          user_id: user.id,
-          permission_id: permissionId,
-          is_granted: false,
-          granted_by: session.session.user.id,
-          reason: 'Role permission revoked'
-        }))
-      ];
+          granted_by: session.session.user.id
+        }));
 
-      if (overridesToInsert.length > 0) {
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from('user_permission_overrides')
-          .insert(overridesToInsert);
+          .insert(permissionsToInsert);
 
-        if (error) throw error;
+        if (insertError) throw insertError;
       }
 
       toast.success(t('permissions.success_saved'));
@@ -276,28 +232,21 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
           </button>
         </div>
 
-        <div className="p-6 bg-blue-50 border-b border-blue-100">
-          <p className="text-sm text-blue-800">
-            {t('permissions.role_info')}: <span className="font-semibold">
-              {user.user_roles && user.user_roles.length > 0
-                ? user.user_roles[0].role?.name
-                : t('roles.receptionist.name')}
-            </span>
-          </p>
-          <p className="text-xs text-blue-600 mt-1">
-            {t('permissions.custom_override_info')}
-          </p>
-        </div>
-
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-280px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           <div className="space-y-4">
             {sortedResources.map((resource) => {
               const resourcePermissions = groupedPermissions[resource];
               const isFullySelected = isResourceFullySelected(resourcePermissions);
               const isPartiallySelected = isResourcePartiallySelected(resourcePermissions);
+              const selectedCount = resourcePermissions.filter(p =>
+                selectedPermissionIds.includes(p.id)
+              ).length;
 
               return (
-                <div key={resource} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                <div
+                  key={resource}
+                  className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow"
+                >
                   <div
                     onClick={() => toggleAllResourcePermissions(resourcePermissions)}
                     className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 cursor-pointer hover:from-green-100 hover:to-emerald-100 transition-all border-b border-gray-200"
@@ -315,12 +264,12 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
                           {getResourceDisplayName(resource)}
                         </h3>
                         <p className="text-xs text-gray-600 mt-0.5">
-                          {resourcePermissions.filter(p => selectedPermissionIds.includes(p.id)).length} / {resourcePermissions.length} محددة
+                          {selectedCount} / {resourcePermissions.length} {t('permissions.selected')}
                         </p>
                       </div>
                       {isFullySelected && (
                         <div className="px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded-full">
-                          الكل
+                          {t('common.all')}
                         </div>
                       )}
                     </div>
@@ -371,10 +320,10 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
         <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3 justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-900">{selectedPermissionIds.length}</span> صلاحية محددة
+              <span className="font-semibold text-gray-900">{selectedPermissionIds.length}</span> {t('permissions.selected')}
             </div>
             <div className="text-xs text-gray-500">
-              من أصل {permissions.length} صلاحية
+              {t('permissions.out_of')} {permissions.length} {t('permissions.permissions')}
             </div>
           </div>
           <div className="flex gap-3">
