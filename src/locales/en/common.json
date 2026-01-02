@@ -667,7 +667,10 @@
     "error_unauthorized": "You do not have permission to perform this action",
     "error_save_permissions": "An error occurred while saving permissions",
     "error_update_role": "An error occurred while updating role",
-    "no_users": "No users"
+    "no_users": "No users",
+    "admin_all_permissions": "Admin has all permissions automatically",
+    "select_permissions": "Select Permissions",
+    "select_permissions_required": "You must select at least one permission for staff members"
   },
   "permissions": {
     "dashboard": "Dashboard",

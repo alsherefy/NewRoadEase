@@ -65,12 +65,38 @@ export function Users() {
     full_name: '',
     role: 'receptionist' as 'admin' | 'customer_service' | 'receptionist',
   });
+  const [availablePermissions, setAvailablePermissions] = useState<Array<{
+    id: string;
+    key: string;
+    resource: string;
+    action: string;
+    name_ar: string;
+    name_en: string;
+  }>>([]);
+  const [selectedNewUserPermissions, setSelectedNewUserPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     if (isAdmin()) {
       loadUsers();
+      loadAvailablePermissions();
     }
   }, []);
+
+  async function loadAvailablePermissions() {
+    try {
+      const { data, error } = await supabase
+        .from('permissions')
+        .select('id, key, resource, action, name_ar, name_en')
+        .eq('is_active', true)
+        .order('resource')
+        .order('display_order');
+
+      if (error) throw error;
+      setAvailablePermissions(data || []);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
+    }
+  }
 
   async function loadUsers() {
     try {
@@ -91,20 +117,46 @@ export function Users() {
       full_name: '',
       role: 'receptionist',
     });
+    setSelectedNewUserPermissions([]);
     setShowModal(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (formData.role !== 'admin' && selectedNewUserPermissions.length === 0) {
+      toast.error(t('users.select_permissions_required'));
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await usersService.createUser({
+      const newUser = await usersService.createUser({
         email: formData.email,
         password: formData.password,
         name: formData.full_name,
         role: formData.role,
       });
+
+      if (formData.role !== 'admin' && selectedNewUserPermissions.length > 0) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          const overridesToInsert = selectedNewUserPermissions.map(permissionId => ({
+            user_id: newUser.id,
+            permission_id: permissionId,
+            is_granted: true,
+            granted_by: sessionData.session.user.id,
+            reason: 'Initial permissions on user creation'
+          }));
+
+          const { error } = await supabase
+            .from('user_permission_overrides')
+            .insert(overridesToInsert);
+
+          if (error) throw error;
+        }
+      }
 
       toast.success(t('users.success_created'));
       await loadUsers();
@@ -115,6 +167,7 @@ export function Users() {
         full_name: '',
         role: 'receptionist',
       });
+      setSelectedNewUserPermissions([]);
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast.error(error.message || t('users.error_create'));
@@ -427,8 +480,8 @@ export function Users() {
         </div>
 
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 my-8">
               <h3 className="text-2xl font-bold text-gray-800 mb-6">
                 {t('users.add_user')}
               </h3>
@@ -491,19 +544,101 @@ export function Users() {
                   </label>
                   <select
                     value={formData.role}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newRole = e.target.value as 'admin' | 'customer_service' | 'receptionist';
                       setFormData({
                         ...formData,
-                        role: e.target.value as 'admin' | 'customer_service' | 'receptionist',
-                      })
-                    }
+                        role: newRole,
+                      });
+                      if (newRole === 'admin') {
+                        setSelectedNewUserPermissions([]);
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="admin">{t('roles.admin.name')}</option>
                     <option value="customer_service">{t('roles.customer_service.name')}</option>
                     <option value="receptionist">{t('roles.receptionist.name')}</option>
                   </select>
+                  {formData.role === 'admin' && (
+                    <p className="text-xs text-orange-600 mt-1 font-medium">
+                      {t('users.admin_all_permissions')}
+                    </p>
+                  )}
                 </div>
+
+                {formData.role !== 'admin' && (
+                  <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <Shield className="inline h-4 w-4 ml-1" />
+                      {t('users.select_permissions')} ({selectedNewUserPermissions.length})
+                    </label>
+                    <div className="max-h-80 overflow-y-auto space-y-2">
+                      {(() => {
+                        const grouped: Record<string, typeof availablePermissions> = {};
+                        availablePermissions.forEach(p => {
+                          if (!grouped[p.resource]) grouped[p.resource] = [];
+                          grouped[p.resource].push(p);
+                        });
+                        return Object.entries(grouped).map(([resource, perms]) => (
+                          <div key={resource} className="bg-white rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-sm text-gray-800">
+                                {resource === 'dashboard' ? 'لوحة التحكم' :
+                                 resource === 'customers' ? 'العملاء' :
+                                 resource === 'vehicles' ? 'المركبات' :
+                                 resource === 'work_orders' ? 'أوامر العمل' :
+                                 resource === 'invoices' ? 'الفواتير' :
+                                 resource === 'inventory' ? 'المخزون' :
+                                 resource === 'expenses' ? 'المصروفات' :
+                                 resource === 'salaries' ? 'الرواتب' :
+                                 resource === 'technicians' ? 'الفنيين' :
+                                 resource === 'reports' ? 'التقارير' :
+                                 resource === 'users' ? 'المستخدمين' :
+                                 resource === 'roles' ? 'الأدوار' :
+                                 resource === 'settings' ? 'الإعدادات' :
+                                 resource === 'audit_logs' ? 'سجلات المراجعة' : resource}
+                              </h4>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const allSelected = perms.every(p => selectedNewUserPermissions.includes(p.id));
+                                  if (allSelected) {
+                                    setSelectedNewUserPermissions(prev => prev.filter(id => !perms.map(p => p.id).includes(id)));
+                                  } else {
+                                    setSelectedNewUserPermissions(prev => [...new Set([...prev, ...perms.map(p => p.id)])]);
+                                  }
+                                }}
+                                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                              >
+                                {perms.every(p => selectedNewUserPermissions.includes(p.id)) ? 'إلغاء الكل' : 'تحديد الكل'}
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {perms.map(perm => (
+                                <label key={perm.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedNewUserPermissions.includes(perm.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedNewUserPermissions(prev => [...prev, perm.id]);
+                                      } else {
+                                        setSelectedNewUserPermissions(prev => prev.filter(id => id !== perm.id));
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-blue-600 rounded"
+                                  />
+                                  <span className="text-gray-700">{perm.name_ar}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-3 mt-6">
                   <button

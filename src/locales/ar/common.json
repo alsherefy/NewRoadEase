@@ -667,7 +667,10 @@
     "error_unauthorized": "ليس لديك صلاحية لتنفيذ هذا الإجراء",
     "error_save_permissions": "حدث خطأ أثناء حفظ الصلاحيات",
     "error_update_role": "حدث خطأ أثناء تحديث الدور",
-    "no_users": "لا يوجد مستخدمين"
+    "no_users": "لا يوجد مستخدمين",
+    "admin_all_permissions": "المدير لديه جميع الصلاحيات تلقائياً",
+    "select_permissions": "اختر الصلاحيات",
+    "select_permissions_required": "يجب اختيار صلاحية واحدة على الأقل للموظفين"
   },
   "permissions": {
     "dashboard": "لوحة التحكم",

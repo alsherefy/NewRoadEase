@@ -278,27 +278,36 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {resourcePermissions
                         .sort((a, b) => a.display_order - b.display_order)
-                        .map((permission) => (
-                          <label
-                            key={permission.id}
-                            className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-green-400 hover:shadow-md cursor-pointer transition-all group"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedPermissionIds.includes(permission.id)}
-                              onChange={() => togglePermission(permission.id)}
-                              className="w-4 h-4 text-green-600 rounded focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                            />
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900 group-hover:text-green-600 transition-colors">
-                                {translatePermission(permission.key, t)}
+                        .map((permission) => {
+                          const isGranted = selectedPermissionIds.includes(permission.id);
+                          return (
+                            <label
+                              key={permission.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                isGranted
+                                  ? 'bg-green-50 border-green-500 shadow-md'
+                                  : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-sm'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isGranted}
+                                onChange={() => togglePermission(permission.id)}
+                                className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
+                              />
+                              <div className="flex-1">
+                                <div className={`text-sm font-medium ${
+                                  isGranted ? 'text-green-800' : 'text-gray-700'
+                                }`}>
+                                  {translatePermission(permission.key, t)}
+                                </div>
                               </div>
-                            </div>
-                            {selectedPermissionIds.includes(permission.id) && (
-                              <div className="flex-shrink-0 w-2 h-2 bg-green-600 rounded-full"></div>
-                            )}
-                          </label>
-                        ))}
+                              {isGranted && (
+                                <CheckSquare className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              )}
+                            </label>
+                          );
+                        })}
                     </div>
                   </div>
                 </div>
