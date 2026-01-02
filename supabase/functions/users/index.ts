@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
         if (action !== 'create') throw new Error('Invalid action');
 
         const body = await req.json();
-        const { email, password, name, role_key } = body;
+        const { email, password, name, role_key, permission_ids } = body;
 
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
           email,
@@ -177,7 +177,26 @@ Deno.serve(async (req: Request) => {
 
         if (userRoleError) throw new Error(userRoleError.message);
 
-        return successResponse(userData, 201);
+        if (permission_ids && Array.isArray(permission_ids) && permission_ids.length > 0) {
+          const permissionsToInsert = permission_ids.map((permissionId: string) => ({
+            user_id: userData.id,
+            permission_id: permissionId,
+            is_granted: true,
+            granted_by: auth.userId,
+            reason: 'Initial permissions on user creation'
+          }));
+
+          const { error: permissionsError } = await supabase
+            .from('user_permission_overrides')
+            .insert(permissionsToInsert);
+
+          if (permissionsError) throw new Error(permissionsError.message);
+        }
+
+        const { data: userRoles } = await supabase
+          .rpc('get_user_roles', { p_user_id: userData.id });
+
+        return successResponse({ ...userData, user_roles: userRoles || [] }, 201);
       }
 
       case 'PUT': {

@@ -19,7 +19,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { UserPermissionsManager } from '../components/UserPermissionsManager';
+import { UserPermissionOverridesManager } from '../components/UserPermissionOverridesManager';
 import AuditLogs from './AuditLogs';
 import { translatePermission } from '../utils/translationHelpers';
 
@@ -137,26 +137,8 @@ export function Users() {
         password: formData.password,
         name: formData.full_name,
         role: formData.role,
+        permission_ids: formData.role !== 'admin' ? selectedNewUserPermissions : [],
       });
-
-      if (formData.role !== 'admin' && selectedNewUserPermissions.length > 0) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session) {
-          const overridesToInsert = selectedNewUserPermissions.map(permissionId => ({
-            user_id: newUser.id,
-            permission_id: permissionId,
-            is_granted: true,
-            granted_by: sessionData.session.user.id,
-            reason: 'Initial permissions on user creation'
-          }));
-
-          const { error } = await supabase
-            .from('user_permission_overrides')
-            .insert(overridesToInsert);
-
-          if (error) throw error;
-        }
-      }
 
       toast.success(t('users.success_created'));
       await loadUsers();
@@ -476,7 +458,7 @@ export function Users() {
                   className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
                 >
                   <Shield className="h-4 w-4" />
-                  {t('users.manage_permissions')}
+                  {t('users.manage_permission_overrides')}
                 </button>
               )}
 
@@ -819,7 +801,7 @@ export function Users() {
         )}
 
         {showPermissionsModal && permissionsUser && (
-          <UserPermissionsManager
+          <UserPermissionOverridesManager
             user={permissionsUser}
             onClose={closePermissionsModal}
             onSave={handlePermissionsSaved}

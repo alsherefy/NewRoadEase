@@ -268,10 +268,13 @@ class UsersService {
     return apiClient.get<User>(`users/${id}`);
   }
 
-  async createUser(data: { email: string; password: string; name: string; role?: string }): Promise<User> {
+  async createUser(data: { email: string; password: string; name: string; role?: string; permission_ids?: string[] }): Promise<User> {
     return apiClient.post<User>('users/create', {
-      ...data,
-      role_key: data.role || 'receptionist'
+      email: data.email,
+      password: data.password,
+      name: data.name,
+      role_key: data.role || 'receptionist',
+      permission_ids: data.permission_ids || []
     });
   }
 

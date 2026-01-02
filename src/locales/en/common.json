@@ -671,7 +671,9 @@
     "no_users": "No users",
     "admin_all_permissions": "Admin has all permissions automatically",
     "select_permissions": "Select Permissions",
-    "select_permissions_required": "You must select at least one permission for staff members"
+    "select_permissions_required": "You must select at least one permission for staff members",
+    "manage_permission_overrides": "Manage Permission Overrides",
+    "manage_roles": "Manage Roles"
   },
   "permissions": {
     "dashboard": "Dashboard",
@@ -695,10 +697,22 @@
     "custom_override_info": "Custom permissions will override default role permissions",
     "custom_permissions": "Custom Permissions",
     "permissions_selected": "permissions selected",
-    "override_note": "Custom permissions override default role permissions. These permissions will be applied directly.",
+    "override_note": "Overrides allow granting additional permissions or revoking role-based permissions for this user specifically",
     "error_loading": "Error loading permissions",
     "error_saving": "Error saving permissions",
     "success_saved": "Permissions saved successfully",
+    "manage_permission_overrides": "Manage Permission Overrides",
+    "role_based_locked": "Role-based permissions are shown locked but can be revoked via override",
+    "can_grant_additional": "You can grant additional permissions not included in the user's role",
+    "can_revoke_role_based": "You can revoke role-based permissions if needed",
+    "granted": "granted",
+    "from_role": "From Role",
+    "overridden": "overridden",
+    "custom": "Custom",
+    "custom_overrides": "Custom Overrides",
+    "selected": "selected",
+    "out_of": "out of",
+    "permissions": "permissions",
     "details": {
       "dashboard.view": {
         "name": "View Dashboard",

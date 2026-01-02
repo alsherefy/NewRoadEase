@@ -671,7 +671,9 @@
     "no_users": "لا يوجد مستخدمين",
     "admin_all_permissions": "المدير لديه جميع الصلاحيات تلقائياً",
     "select_permissions": "اختر الصلاحيات",
-    "select_permissions_required": "يجب اختيار صلاحية واحدة على الأقل للموظفين"
+    "select_permissions_required": "يجب اختيار صلاحية واحدة على الأقل للموظفين",
+    "manage_permission_overrides": "إدارة تجاوزات الصلاحيات",
+    "manage_roles": "إدارة الأدوار"
   },
   "permissions": {
     "dashboard": "لوحة التحكم",
@@ -695,10 +697,22 @@
     "custom_override_info": "الصلاحيات المخصصة ستتجاوز صلاحيات الدور الافتراضية",
     "custom_permissions": "الصلاحيات المخصصة",
     "permissions_selected": "صلاحية محددة",
-    "override_note": "الصلاحيات المخصصة تتجاوز صلاحيات الدور الافتراضية. سيتم تطبيق هذه الصلاحيات مباشرة.",
+    "override_note": "التجاوزات تسمح بمنح صلاحيات إضافية أو إلغاء صلاحيات مبنية على الدور لهذا المستخدم تحديداً",
     "error_loading": "خطأ في تحميل الصلاحيات",
     "error_saving": "خطأ في حفظ الصلاحيات",
     "success_saved": "تم حفظ الصلاحيات بنجاح",
+    "manage_permission_overrides": "إدارة تجاوزات الصلاحيات",
+    "role_based_locked": "الصلاحيات المبنية على الدور معروضة كمقفلة ولكن يمكن إلغاؤها عبر التجاوز",
+    "can_grant_additional": "يمكنك منح صلاحيات إضافية غير موجودة في دور المستخدم",
+    "can_revoke_role_based": "يمكنك إلغاء الصلاحيات المبنية على الدور إذا لزم الأمر",
+    "granted": "ممنوحة",
+    "from_role": "من الدور",
+    "overridden": "متجاوزة",
+    "custom": "مخصصة",
+    "custom_overrides": "تجاوزات مخصصة",
+    "selected": "محددة",
+    "out_of": "من أصل",
+    "permissions": "صلاحيات",
     "details": {
       "dashboard.view": {
         "name": "عرض لوحة التحكم",
