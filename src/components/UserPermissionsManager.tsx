@@ -46,20 +46,7 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
       if (permsError) throw permsError;
 
       setPermissions(allPermsData || []);
-
-      const { data: overridesData, error: overridesError } = await supabase
-        .from('user_permission_overrides')
-        .select('permission_id, is_granted')
-        .eq('user_id', user.id)
-        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
-
-      if (overridesError) throw overridesError;
-
-      const grantedPermissionIds = overridesData
-        ?.filter(o => o.is_granted)
-        .map(o => o.permission_id) || [];
-
-      setSelectedPermissionIds(grantedPermissionIds);
+      setSelectedPermissionIds([]);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast.error(t('permissions.error_loading'));
