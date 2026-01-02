@@ -140,27 +140,23 @@ export function UserExplicitPermissionsManager({ user, onClose, onSave }: UserEx
         throw new Error('No active session');
       }
 
-      const { error: deleteError } = await supabase
-        .from('user_permission_overrides')
-        .delete()
-        .eq('user_id', user.id);
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/users/${user.id}/permissions`;
 
-      if (deleteError) throw deleteError;
+      const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          permission_ids: Array.from(selectedPermissions)
+        })
+      });
 
-      if (selectedPermissions.size > 0) {
-        const permissionsToInsert = Array.from(selectedPermissions).map((permissionId) => ({
-          user_id: user.id,
-          permission_id: permissionId,
-          is_granted: true,
-          granted_by: session.session.user.id,
-          reason: 'Explicit permission assignment by administrator'
-        }));
+      const result = await response.json();
 
-        const { error: insertError } = await supabase
-          .from('user_permission_overrides')
-          .insert(permissionsToInsert);
-
-        if (insertError) throw insertError;
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Failed to update permissions');
       }
 
       toast.success(t('permissions.success_saved'));

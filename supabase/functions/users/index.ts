@@ -205,6 +205,43 @@ Deno.serve(async (req: Request) => {
 
         const body = await req.json();
 
+        if (action === 'permissions') {
+          const { permission_ids } = body;
+
+          if (!Array.isArray(permission_ids)) {
+            throw new Error('permission_ids must be an array');
+          }
+
+          const { error: deleteError } = await supabase
+            .from('user_permission_overrides')
+            .delete()
+            .eq('user_id', userId);
+
+          if (deleteError) throw new Error(deleteError.message);
+
+          if (permission_ids.length > 0) {
+            const permissionsToInsert = permission_ids.map((permissionId: string) => ({
+              user_id: userId,
+              permission_id: permissionId,
+              is_granted: true,
+              granted_by: auth.userId,
+              reason: 'Explicit permission assignment by administrator'
+            }));
+
+            const { error: insertError } = await supabase
+              .from('user_permission_overrides')
+              .insert(permissionsToInsert);
+
+            if (insertError) throw new Error(insertError.message);
+          }
+
+          return successResponse({
+            success: true,
+            message: 'Permissions updated successfully',
+            count: permission_ids.length
+          });
+        }
+
         if (body.role) {
           const roleKey = body.role;
           delete body.role;
