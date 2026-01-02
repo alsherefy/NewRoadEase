@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { translatePermission } from '../utils/translationHelpers';
+import { useAuth } from '../contexts/AuthContext';
 
 interface UserExplicitPermissionsManagerProps {
   user: User;
@@ -25,6 +26,7 @@ interface Permission {
 export function UserExplicitPermissionsManager({ user, onClose, onSave }: UserExplicitPermissionsManagerProps) {
   const { t } = useTranslation();
   const toast = useToast();
+  const { user: currentUser, refreshPermissions } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -170,6 +172,11 @@ export function UserExplicitPermissionsManager({ user, onClose, onSave }: UserEx
       }
 
       toast.success(t('permissions.success_saved'));
+
+      if (currentUser?.id === user.id) {
+        await refreshPermissions();
+      }
+
       onSave();
       onClose();
     } catch (error) {
