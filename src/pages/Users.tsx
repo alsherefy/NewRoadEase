@@ -19,11 +19,10 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { UserPermissionsManager } from '../components/UserPermissionsManager';
-import RolesManagement from './RolesManagement';
+import { UserPermissionsCard } from '../components/UserPermissionsCard';
 import AuditLogs from './AuditLogs';
 
-type TabType = 'users' | 'roles' | 'audit';
+type TabType = 'users' | 'audit';
 
 function getUserPrimaryRole(user: User): 'admin' | 'customer_service' | 'receptionist' {
   if (user.user_roles && user.user_roles.length > 0) {
@@ -47,7 +46,8 @@ export function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [showPermissionsCard, setShowPermissionsCard] = useState(false);
+  const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [passwordFormData, setPasswordFormData] = useState({
     user_id: '',
     new_password: '',
@@ -151,18 +151,19 @@ export function Users() {
     }
   }
 
-  function openPermissionsModal(user: User) {
-    setSelectedUser(user);
-    setShowPermissionsModal(true);
-  }
-
-  function closePermissionsModal() {
-    setShowPermissionsModal(false);
-    setSelectedUser(null);
+  function togglePermissionsCard(user: User | null) {
+    if (user) {
+      setPermissionsUser(user);
+      setShowPermissionsCard(true);
+    } else {
+      setPermissionsUser(null);
+      setShowPermissionsCard(false);
+    }
   }
 
   async function handlePermissionsSaved() {
     await loadUsers();
+    togglePermissionsCard(null);
   }
 
   function openPasswordModal(user: User) {
@@ -280,7 +281,6 @@ export function Users() {
 
   const tabs = [
     { id: 'users' as TabType, label: t('nav.users'), icon: UsersIcon },
-    { id: 'roles' as TabType, label: t('nav.rolesManagement'), icon: Shield },
     { id: 'audit' as TabType, label: t('nav.auditLogs'), icon: FileText },
   ];
 
@@ -288,8 +288,6 @@ export function Users() {
     switch (activeTab) {
       case 'users':
         return renderUsersTab();
-      case 'roles':
-        return <RolesManagement />;
       case 'audit':
         return <AuditLogs />;
       default:
@@ -319,12 +317,12 @@ export function Users() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
           {users.map((user) => (
-            <div
-              key={user.id}
-              className="bg-white rounded-xl shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all"
-            >
+            <div key={user.id} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-xl shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all"
+                >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div
@@ -410,11 +408,17 @@ export function Users() {
 
               {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
                 <button
-                  onClick={() => openPermissionsModal(user)}
-                  className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
+                  onClick={() => togglePermissionsCard(showPermissionsCard && permissionsUser?.id === user.id ? null : user)}
+                  className={`w-full mb-3 px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    showPermissionsCard && permissionsUser?.id === user.id
+                      ? 'bg-gradient-to-r from-green-700 to-green-800 text-white'
+                      : 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800'
+                  }`}
                 >
                   <Shield className="h-4 w-4" />
-                  {t('users.manage_permissions')}
+                  {showPermissionsCard && permissionsUser?.id === user.id
+                    ? t('users.hide_permissions')
+                    : t('users.manage_permissions')}
                 </button>
               )}
 
@@ -427,6 +431,19 @@ export function Users() {
                   {t('common.delete')}
                 </button>
               </div>
+                </div>
+              </div>
+
+              {(getUserPrimaryRole(user) === 'customer_service' || getUserPrimaryRole(user) === 'receptionist') && (
+                <div className="lg:col-span-2">
+                  {showPermissionsCard && permissionsUser?.id === user.id && (
+                    <UserPermissionsCard
+                      user={user}
+                      onSave={handlePermissionsSaved}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -529,14 +546,6 @@ export function Users() {
               </form>
             </div>
           </div>
-        )}
-
-        {showPermissionsModal && selectedUser && (
-          <UserPermissionsManager
-            user={selectedUser}
-            onClose={closePermissionsModal}
-            onSave={handlePermissionsSaved}
-          />
         )}
 
         {showPasswordModal && selectedUser && (
