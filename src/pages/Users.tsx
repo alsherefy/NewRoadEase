@@ -21,6 +21,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { UserPermissionsManager } from '../components/UserPermissionsManager';
 import AuditLogs from './AuditLogs';
+import { translatePermission } from '../utils/translationHelpers';
 
 type TabType = 'users' | 'audit';
 
@@ -70,8 +71,6 @@ export function Users() {
     key: string;
     resource: string;
     action: string;
-    name_ar: string;
-    name_en: string;
   }>>([]);
   const [selectedNewUserPermissions, setSelectedNewUserPermissions] = useState<string[]>([]);
 
@@ -86,7 +85,7 @@ export function Users() {
     try {
       const { data, error } = await supabase
         .from('permissions')
-        .select('id, key, resource, action, name_ar, name_en')
+        .select('id, key, resource, action')
         .eq('is_active', true)
         .order('resource')
         .order('display_order');
@@ -95,6 +94,7 @@ export function Users() {
       setAvailablePermissions(data || []);
     } catch (error) {
       console.error('Error loading permissions:', error);
+      toast.error(t('permissions.error_loading'));
     }
   }
 
@@ -629,7 +629,7 @@ export function Users() {
                                     }}
                                     className="w-4 h-4 text-blue-600 rounded"
                                   />
-                                  <span className="text-gray-700">{perm.name_ar}</span>
+                                  <span className="text-gray-700">{translatePermission(perm.key, t)}</span>
                                 </label>
                               ))}
                             </div>
