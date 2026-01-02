@@ -19,7 +19,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { UserPermissionOverridesManager } from '../components/UserPermissionOverridesManager';
+import { UserExplicitPermissionsManager } from '../components/UserExplicitPermissionsManager';
 import AuditLogs from './AuditLogs';
 import { translatePermission } from '../utils/translationHelpers';
 
@@ -458,7 +458,7 @@ export function Users() {
                   className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center gap-2"
                 >
                   <Shield className="h-4 w-4" />
-                  {t('users.manage_permission_overrides')}
+                  {t('users.manage_permissions')}
                 </button>
               )}
 
@@ -801,7 +801,7 @@ export function Users() {
         )}
 
         {showPermissionsModal && permissionsUser && (
-          <UserPermissionOverridesManager
+          <UserExplicitPermissionsManager
             user={permissionsUser}
             onClose={closePermissionsModal}
             onSave={handlePermissionsSaved}
