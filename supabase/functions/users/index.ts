@@ -73,10 +73,10 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
     const lastPart = pathParts[pathParts.length - 1];
-    const action = lastPart === 'permissions' ? 'permissions' : lastPart === 'create' ? 'create' : undefined;
+    const action = lastPart === 'permissions' ? 'permissions' : lastPart === 'permission-overrides' ? 'permission-overrides' : lastPart === 'create' ? 'create' : undefined;
 
     let userId: string | undefined;
-    if (action === 'permissions') {
+    if (action === 'permissions' || action === 'permission-overrides') {
       userId = pathParts[pathParts.length - 2];
     } else if (lastPart !== 'users' && action !== 'create') {
       userId = lastPart;
@@ -87,6 +87,17 @@ Deno.serve(async (req: Request) => {
         if (userId && action === 'permissions') {
           const { data, error } = await supabase
             .rpc('get_user_all_permissions', { p_user_id: userId });
+
+          if (error) throw new Error(error.message);
+          return successResponse(data || []);
+        }
+
+        if (userId && action === 'permission-overrides') {
+          const { data, error } = await supabase
+            .from('user_permission_overrides')
+            .select('permission_id, is_granted')
+            .eq('user_id', userId)
+            .eq('is_granted', true);
 
           if (error) throw new Error(error.message);
           return successResponse(data || []);

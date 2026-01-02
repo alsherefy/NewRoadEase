@@ -38,27 +38,37 @@ export function UserExplicitPermissionsManager({ user, onClose, onSave }: UserEx
     try {
       setLoading(true);
 
-      const [allPermsResult, userPermsResult] = await Promise.all([
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        throw new Error('No active session');
+      }
+
+      const [allPermsResult, userOverridesResponse] = await Promise.all([
         supabase
           .from('permissions')
           .select('*')
           .eq('is_active', true)
           .order('resource')
           .order('display_order'),
-        supabase
-          .from('user_permission_overrides')
-          .select('permission_id')
-          .eq('user_id', user.id)
-          .eq('is_granted', true)
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/users/${user.id}/permission-overrides`, {
+          headers: {
+            'Authorization': `Bearer ${session.session.access_token}`,
+            'Content-Type': 'application/json',
+          }
+        })
       ]);
 
       if (allPermsResult.error) throw allPermsResult.error;
-      if (userPermsResult.error) throw userPermsResult.error;
+
+      const userOverridesData = await userOverridesResponse.json();
+      if (!userOverridesResponse.ok || !userOverridesData.success) {
+        throw new Error(userOverridesData.error?.message || 'Failed to load permission overrides');
+      }
 
       setPermissions(allPermsResult.data || []);
 
       const selectedIds = new Set(
-        (userPermsResult.data || []).map((item: any) => item.permission_id)
+        (userOverridesData.data || []).map((item: any) => item.permission_id)
       );
       setSelectedPermissions(selectedIds);
 
