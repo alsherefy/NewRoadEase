@@ -29,6 +29,7 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
+  const [rolePermissionIds, setRolePermissionIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadPermissions();
@@ -36,27 +37,59 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
 
   async function loadPermissions() {
     try {
-      const [allPermsResult, userOverridesResult] = await Promise.all([
-        supabase
-          .from('permissions')
-          .select('*')
-          .eq('is_active', true)
-          .order('resource')
-          .order('display_order'),
-        supabase
-          .from('user_permission_overrides')
-          .select('permission_id, is_granted')
-          .eq('user_id', user.id)
-          .eq('is_granted', true)
-          .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-      ]);
+      // جلب جميع الصلاحيات المتاحة
+      const allPermsResult = await supabase
+        .from('permissions')
+        .select('*')
+        .eq('is_active', true)
+        .order('resource')
+        .order('display_order');
 
       if (allPermsResult.error) throw allPermsResult.error;
-
       setPermissions(allPermsResult.data || []);
 
-      const grantedPermissionIds = (userOverridesResult.data || []).map(o => o.permission_id);
-      setSelectedPermissionIds(grantedPermissionIds);
+      // جلب الصلاحيات المخصصة للمستخدم
+      const userOverridesResult = await supabase
+        .from('user_permission_overrides')
+        .select('permission_id, is_granted')
+        .eq('user_id', user.id)
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+
+      // جلب الصلاحيات من الدور
+      const { data: rolePermissions } = await supabase
+        .from('user_roles')
+        .select(`
+          role:roles!inner (
+            role_permissions!inner (
+              permission_id
+            )
+          )
+        `)
+        .eq('user_id', user.id)
+        .single();
+
+      // استخراج IDs من الصلاحيات
+      const rolePerms = rolePermissions?.role?.role_permissions?.map((rp: any) => rp.permission_id) || [];
+      const customOverrides = (userOverridesResult.data || []) as { permission_id: string; is_granted: boolean }[];
+
+      // الصلاحيات المضافة (is_granted = true)
+      const addedPermissions = customOverrides
+        .filter(o => o.is_granted)
+        .map(o => o.permission_id);
+
+      // الصلاحيات المحذوفة (is_granted = false)
+      const revokedPermissions = customOverrides
+        .filter(o => !o.is_granted)
+        .map(o => o.permission_id);
+
+      // حساب الصلاحيات الفعلية = (صلاحيات الدور + المضافة) - المحذوفة
+      const allGrantedIds = [
+        ...rolePerms.filter((id: string) => !revokedPermissions.includes(id)),
+        ...addedPermissions
+      ];
+
+      setRolePermissionIds(rolePerms);
+      setSelectedPermissionIds([...new Set(allGrantedIds)]);
     } catch (error) {
       console.error('Error loading permissions:', error);
       toast.error(t('permissions.error_loading'));
@@ -141,20 +174,39 @@ export function UserPermissionsManager({ user, onClose, onSave }: UserPermission
         throw new Error('No active session');
       }
 
+      // حساب الفرق بين الصلاحيات الحالية والصلاحيات من الدور
+      const addedPermissions = selectedPermissionIds.filter(
+        id => !rolePermissionIds.includes(id)
+      );
+      const revokedPermissions = rolePermissionIds.filter(
+        id => !selectedPermissionIds.includes(id)
+      );
+
+      // حذف جميع الصلاحيات المخصصة القديمة
       await supabase
         .from('user_permission_overrides')
         .delete()
         .eq('user_id', user.id);
 
-      if (selectedPermissionIds.length > 0) {
-        const overridesToInsert = selectedPermissionIds.map(permissionId => ({
+      // إضافة الصلاحيات المخصصة الجديدة
+      const overridesToInsert = [
+        ...addedPermissions.map(permissionId => ({
           user_id: user.id,
           permission_id: permissionId,
           is_granted: true,
           granted_by: session.session.user.id,
-          reason: 'Custom permission override'
-        }));
+          reason: 'Additional permission granted'
+        })),
+        ...revokedPermissions.map(permissionId => ({
+          user_id: user.id,
+          permission_id: permissionId,
+          is_granted: false,
+          granted_by: session.session.user.id,
+          reason: 'Role permission revoked'
+        }))
+      ];
 
+      if (overridesToInsert.length > 0) {
         const { error } = await supabase
           .from('user_permission_overrides')
           .insert(overridesToInsert);
