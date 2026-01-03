@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
+import { requirePermission, hasPermission } from "../_shared/middleware/permissionChecker.ts";
 import { ApiError } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -74,55 +76,6 @@ async function validateRequestBody<T>(req: Request, requiredFields?: string[]): 
   return body as T;
 }
 
-async function authenticateRequest(req: Request) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError("Missing or invalid authorization header", "UNAUTHORIZED", 401);
-  }
-
-  const token = authHeader.replace("Bearer ", "");
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    throw new ApiError("Invalid or expired token", "UNAUTHORIZED", 401);
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("organization_id, full_name, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile) {
-    throw new ApiError("User profile not found", "UNAUTHORIZED", 401);
-  }
-
-  if (!profile.is_active) {
-    throw new ApiError("User account is inactive", "UNAUTHORIZED", 401);
-  }
-
-  if (!profile.organization_id) {
-    throw new ApiError("User is not assigned to an organization", "UNAUTHORIZED", 401);
-  }
-
-  const { data: userRoles } = await supabase
-    .rpc("get_user_roles", { p_user_id: user.id });
-
-  if (!userRoles || userRoles.length === 0) {
-    throw new ApiError("User has no active roles assigned", "UNAUTHORIZED", 401);
-  }
-
-  const userRole = userRoles[0].role.key;
-
-  return {
-    userId: user.id,
-    role: userRole,
-    organizationId: profile.organization_id,
-    email: user.email || '',
-    fullName: profile.full_name,
-  };
-}
 
 function getAuthenticatedClient(req: Request) {
   const authHeader = req.headers.get("Authorization");
@@ -137,43 +90,13 @@ function getAuthenticatedClient(req: Request) {
   });
 }
 
-function allRoles(auth: any): void {
-  return;
-}
-
-function adminAndCustomerService(auth: any): void {
-  if (auth.role !== 'admin' && auth.role !== 'customer_service') {
-    throw new ApiError("Access denied", "FORBIDDEN", 403);
-  }
-}
-
-function adminOnly(auth: any): void {
-  if (auth.role !== 'admin') {
-    throw new ApiError("Access denied - Admin only", "FORBIDDEN", 403);
-  }
-}
-
-function canManagePayments(auth: any): void {
-  if (auth.role !== 'admin' && auth.role !== 'customer_service' && auth.role !== 'receptionist') {
-    throw new ApiError("Access denied", "FORBIDDEN", 403);
-  }
-}
-
-async function checkOwnership(auth: any, resource: string, resourceId: string): Promise<void> {
-  return;
-}
-
-const RESOURCES = {
-  INVOICES: 'invoices',
-};
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return corsResponse();
   }
 
   try {
-    const auth = await authenticateRequest(req);
+    const auth = await authenticateWithPermissions(req);
     const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
@@ -183,7 +106,7 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
-        allRoles(auth);
+        requirePermission(auth, 'invoices.view');
 
         if (invoiceId) {
           validateUUID(invoiceId, "Invoice ID");
@@ -276,7 +199,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        adminAndCustomerService(auth);
+        requirePermission(auth, 'invoices.create');
 
         const body = await validateRequestBody(req, ["work_order_id", "subtotal", "total"]);
         const { items, ...invoiceData } = body;
@@ -314,21 +237,24 @@ Deno.serve(async (req: Request) => {
       case "PUT": {
         validateUUID(invoiceId, "Invoice ID");
 
-        await checkOwnership(auth, RESOURCES.INVOICES, invoiceId!);
-
         const body = await req.json();
         const { items, ...invoiceData } = body;
 
-        // Check if only updating payment info (allowed for receptionist)
+        // Check if only updating payment info
         const paymentFields = ['paid_amount', 'payment_status', 'payment_method', 'card_type'];
         const isPaymentOnlyUpdate = Object.keys(invoiceData).every(key =>
           paymentFields.includes(key) || key === 'updated_at'
         );
 
+        // Require appropriate permission based on what's being updated
         if (isPaymentOnlyUpdate) {
-          canManagePayments(auth);
+          // Payment updates require any of: invoices.update OR invoices.manage_payments
+          if (!hasPermission(auth, 'invoices.update')) {
+            requirePermission(auth, 'invoices.manage_payments');
+          }
         } else {
-          adminAndCustomerService(auth);
+          // Full invoice updates require invoices.update
+          requirePermission(auth, 'invoices.update');
         }
 
         const { data, error } = await supabase
@@ -363,10 +289,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        adminOnly(auth);
+        requirePermission(auth, 'invoices.delete');
         validateUUID(invoiceId, "Invoice ID");
-
-        await checkOwnership(auth, RESOURCES.INVOICES, invoiceId!);
 
         // First, get the invoice to find the work_order_id
         const { data: invoice, error: fetchError } = await supabase
@@ -393,7 +317,7 @@ Deno.serve(async (req: Request) => {
 
         // Reset work order status to 'in_progress' if it was linked to this invoice
         if (invoice.work_order_id) {
-          const { error: updateError } = await supabase
+          await supabase
             .from("work_orders")
             .update({
               status: "in_progress",
@@ -401,11 +325,7 @@ Deno.serve(async (req: Request) => {
             })
             .eq("id", invoice.work_order_id)
             .eq("organization_id", auth.organizationId);
-
-          if (updateError) {
-            console.error("Error resetting work order status:", updateError);
-            // Don't throw error here - invoice is already deleted
-          }
+          // Ignore errors - invoice is already deleted
         }
 
         return successResponse({ deleted: true, workOrderReset: !!invoice.work_order_id });

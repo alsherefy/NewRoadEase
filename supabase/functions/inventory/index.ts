@@ -1,10 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { allRoles, adminAndCustomerService, adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
+import { requirePermission } from "../_shared/middleware/permissionChecker.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { validateUUID, validateRequestBody } from "../_shared/utils/validation.ts";
-import { RESOURCES } from "../_shared/constants/resources.ts";
 import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
@@ -13,7 +12,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const auth = await authenticateRequest(req);
+    const auth = await authenticateWithPermissions(req);
     const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
@@ -23,7 +22,7 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
-        allRoles(auth);
+        requirePermission(auth, 'inventory.view');
 
         if (sparePartId) {
           validateUUID(sparePartId, "Spare Part ID");
@@ -59,7 +58,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        adminAndCustomerService(auth);
+        requirePermission(auth, 'inventory.create');
 
         const body = await validateRequestBody(req, ["name", "part_number", "quantity", "unit_price"]);
         const { data, error } = await supabase
@@ -76,10 +75,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        adminAndCustomerService(auth);
+        requirePermission(auth, 'inventory.update');
         validateUUID(sparePartId, "Spare Part ID");
-
-        await checkOwnership(auth, RESOURCES.INVENTORY, sparePartId!);
 
         const body = await req.json();
         const { data, error } = await supabase
@@ -95,10 +92,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        adminOnly(auth);
+        requirePermission(auth, 'inventory.delete');
         validateUUID(sparePartId, "Spare Part ID");
-
-        await checkOwnership(auth, RESOURCES.INVENTORY, sparePartId!);
 
         const { error } = await supabase
           .from("spare_parts")
@@ -114,7 +109,6 @@ Deno.serve(async (req: Request) => {
         throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    console.error("Error in inventory endpoint:", err);
     return errorResponse(err as Error);
   }
 });
