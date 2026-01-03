@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, Plus, Trash2, Save, Receipt, Percent, CreditCard, Banknote } from 'lucide-react';
 import { customersService, vehiclesService, workOrdersService, settingsService, ServiceError } from '../services';
-import { supabase } from '../lib/supabase';
+import { apiClient } from '../services/apiClient';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { normalizeNumberInput, formatToFixed, toEnglishDigits } from '../utils/numberUtils';
@@ -451,8 +451,7 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
   };
 
   const generateInvoiceNumber = async (): Promise<string> => {
-    const { data, error } = await supabase.rpc('generate_invoice_number');
-    if (error) throw error;
+    const data = await apiClient.get<string>('invoices/generate-number');
     return data;
   };
 

@@ -18,12 +18,32 @@ Deno.serve(async (req: Request) => {
     const pathParts = url.pathname.split("/").filter(Boolean);
 
     const lastPart = pathParts[pathParts.length - 1];
-    const salaryId = lastPart !== 'salaries' ? lastPart : undefined;
+    const action = lastPart === 'calculate' ? 'calculate' : undefined;
+    const salaryId = lastPart !== 'salaries' && action !== 'calculate' ? lastPart : undefined;
     const technicianId = url.searchParams.get("technicianId");
 
     switch (req.method) {
       case "GET": {
         requirePermission(auth, 'salaries.view');
+
+        if (action === 'calculate') {
+          const calcTechnicianId = url.searchParams.get("technicianId");
+          const month = url.searchParams.get("month");
+          const year = url.searchParams.get("year");
+
+          if (!calcTechnicianId || !month || !year) {
+            throw new ApiError("Missing required parameters: technicianId, month, year", "VALIDATION_ERROR", 400);
+          }
+
+          const { data, error } = await supabase.rpc('calculate_technician_salary', {
+            p_technician_id: calcTechnicianId,
+            p_month: parseInt(month),
+            p_year: parseInt(year)
+          });
+
+          if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+          return successResponse(data);
+        }
 
         if (salaryId) {
           validateUUID(salaryId, "Salary ID");
@@ -46,6 +66,21 @@ Deno.serve(async (req: Request) => {
           query = query.eq("technician_id", technicianId);
         }
 
+        const month = url.searchParams.get("month");
+        if (month) {
+          query = query.eq("month", parseInt(month));
+        }
+
+        const year = url.searchParams.get("year");
+        if (year) {
+          query = query.eq("year", parseInt(year));
+        }
+
+        const paymentStatus = url.searchParams.get("payment_status");
+        if (paymentStatus && paymentStatus !== 'all') {
+          query = query.eq("payment_status", paymentStatus);
+        }
+
         const orderBy = url.searchParams.get("orderBy") || "created_at";
         const orderDir = url.searchParams.get("orderDir") || "desc";
 
@@ -58,7 +93,7 @@ Deno.serve(async (req: Request) => {
       case "POST": {
         requirePermission(auth, 'salaries.create');
 
-        const body = await validateRequestBody(req, ["technician_id", "month", "year", "amount"]);
+        const body = await req.json();
         const { data: salaryNumber } = await supabase.rpc("generate_salary_number");
 
         const { data, error } = await supabase
@@ -68,7 +103,7 @@ Deno.serve(async (req: Request) => {
             salary_number: salaryNumber,
             organization_id: auth.organizationId,
           })
-          .select()
+          .select(`*, technician:technicians(*)`)
           .single();
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
@@ -85,7 +120,7 @@ Deno.serve(async (req: Request) => {
           .update({ ...body, updated_at: new Date().toISOString() })
           .eq("id", salaryId)
           .eq("organization_id", auth.organizationId)
-          .select()
+          .select(`*, technician:technicians(*)`)
           .single();
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);

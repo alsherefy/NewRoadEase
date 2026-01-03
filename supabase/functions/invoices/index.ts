@@ -102,11 +102,18 @@ Deno.serve(async (req: Request) => {
     const pathParts = url.pathname.split("/").filter(Boolean);
 
     const lastPart = pathParts[pathParts.length - 1];
-    const invoiceId = lastPart !== 'invoices' ? lastPart : undefined;
+    const action = lastPart === 'generate-number' ? 'generate-number' : undefined;
+    const invoiceId = lastPart !== 'invoices' && action !== 'generate-number' ? lastPart : undefined;
 
     switch (req.method) {
       case "GET": {
         requirePermission(auth, 'invoices.view');
+
+        if (action === 'generate-number') {
+          const { data: invoiceNumber, error } = await supabase.rpc("generate_invoice_number");
+          if (error) throw new ApiError(error.message, "DB_ERROR", 500);
+          return successResponse(invoiceNumber);
+        }
 
         if (invoiceId) {
           validateUUID(invoiceId, "Invoice ID");

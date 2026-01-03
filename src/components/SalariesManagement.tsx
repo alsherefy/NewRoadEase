@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { apiClient } from '../services/apiClient';
 import { Salary, Technician } from '../types';
 import { Plus, Edit2, Trash2, DollarSign, Calculator, Calendar, CreditCard, Banknote, Building2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
@@ -63,22 +63,16 @@ export function SalariesManagement({ technicians }: SalariesManagementProps) {
   async function loadSalaries() {
     setLoading(true);
     try {
-      let query = supabase
-        .from('salaries')
-        .select(`
-          *,
-          technician:technicians(*)
-        `)
-        .eq('month', selectedMonth)
-        .eq('year', selectedYear)
-        .order('created_at', { ascending: false });
+      const params: Record<string, string> = {
+        month: selectedMonth.toString(),
+        year: selectedYear.toString(),
+      };
 
       if (filterStatus !== 'all') {
-        query = query.eq('payment_status', filterStatus);
+        params.payment_status = filterStatus;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const data = await apiClient.get<Salary[]>('salaries', params);
       setSalaries(data || []);
     } catch (error) {
       console.error('Error loading salaries:', error);
@@ -90,13 +84,11 @@ export function SalariesManagement({ technicians }: SalariesManagementProps) {
 
   async function calculateSalary(technicianId: string, month: number, year: number) {
     try {
-      const { data, error } = await supabase.rpc('calculate_technician_salary', {
-        p_technician_id: technicianId,
-        p_month: month,
-        p_year: year
+      const data = await apiClient.get('salaries/calculate', {
+        technicianId,
+        month: month.toString(),
+        year: year.toString()
       });
-
-      if (error) throw error;
 
       if (data && data.length > 0) {
         const result = data[0];
@@ -174,27 +166,17 @@ export function SalariesManagement({ technicians }: SalariesManagementProps) {
     const total = calculateTotal();
 
     try {
-      const { data: salaryNumber } = await supabase.rpc('generate_salary_number');
-
       const salaryData = {
         ...formData,
         total_salary: total,
-        salary_number: editingId ? undefined : salaryNumber,
         created_by: user?.id,
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('salaries')
-          .update(salaryData)
-          .eq('id', editingId);
-        if (error) throw error;
+        await apiClient.put(`salaries/${editingId}`, salaryData);
         toast.success(t('salaries.update_success'));
       } else {
-        const { error } = await supabase
-          .from('salaries')
-          .insert([salaryData]);
-        if (error) throw error;
+        await apiClient.post('salaries', salaryData);
         toast.success(t('salaries.add_success'));
       }
 
@@ -202,7 +184,7 @@ export function SalariesManagement({ technicians }: SalariesManagementProps) {
       loadSalaries();
     } catch (error: any) {
       console.error('Error saving salary:', error);
-      if (error.code === '23505') {
+      if (error.message?.includes('duplicate') || error.message?.includes('مكرر')) {
         toast.error(t('salaries.duplicate_error'));
       } else {
         toast.error(t('errors.save_failed'));
@@ -221,12 +203,7 @@ export function SalariesManagement({ technicians }: SalariesManagementProps) {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from('salaries')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await apiClient.delete(`salaries/${id}`);
       toast.success(t('salaries.delete_success'));
       loadSalaries();
     } catch (error) {
