@@ -1046,6 +1046,27 @@
       "dashboard": {
         "view": {
           "name": "عرض لوحة التحكم"
+        },
+        "view_financial_stats": {
+          "name": "عرض الإحصائيات المالية"
+        },
+        "view_open_orders": {
+          "name": "عرض الطلبات المفتوحة"
+        },
+        "view_open_invoices": {
+          "name": "عرض الفواتير المفتوحة"
+        },
+        "view_inventory_alerts": {
+          "name": "عرض تنبيهات المخزون"
+        },
+        "view_expenses": {
+          "name": "عرض ملخص المصروفات"
+        },
+        "view_technicians_performance": {
+          "name": "عرض أداء الفنيين"
+        },
+        "view_activities": {
+          "name": "عرض الأنشطة الأخيرة"
         }
       },
       "settings": {

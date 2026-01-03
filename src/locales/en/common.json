@@ -1046,6 +1046,27 @@
       "dashboard": {
         "view": {
           "name": "View Dashboard"
+        },
+        "view_financial_stats": {
+          "name": "View Financial Statistics"
+        },
+        "view_open_orders": {
+          "name": "View Open Orders"
+        },
+        "view_open_invoices": {
+          "name": "View Open Invoices"
+        },
+        "view_inventory_alerts": {
+          "name": "View Inventory Alerts"
+        },
+        "view_expenses": {
+          "name": "View Expenses Summary"
+        },
+        "view_technicians_performance": {
+          "name": "View Technicians Performance"
+        },
+        "view_activities": {
+          "name": "View Recent Activities"
         }
       },
       "settings": {
