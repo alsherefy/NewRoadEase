@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Edit2, Trash2, Search, AlertTriangle, CheckCircle } from 'lucide-react';
 import { SparePart } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 
 export function Inventory() {
   const { t } = useTranslation();
+  const { hasDetailedPermission } = useAuth();
   const toast = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
@@ -268,18 +270,22 @@ export function Inventory() {
                       <td className="py-4 px-4 text-gray-600">{part.location || '-'}</td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleOpenEditModal(part)}
-                            className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(part.id, part.name)}
-                            className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {hasDetailedPermission('inventory.update') && (
+                            <button
+                              onClick={() => handleOpenEditModal(part)}
+                              className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          {hasDetailedPermission('inventory.delete') && (
+                            <button
+                              onClick={() => handleDelete(part.id, part.name)}
+                              className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

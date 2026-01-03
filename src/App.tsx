@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { Navbar } from './components/Navbar';
@@ -36,10 +36,63 @@ type ViewType =
   | 'settings';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<ViewType>('dashboard');
   const [selectedOrderId, setSelectedOrderId] = useState<string>('');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
+
+  const getDefaultAllowedTab = (): ViewType => {
+    const tabPermissions: Array<{ tab: ViewType; permission: string }> = [
+      { tab: 'dashboard', permission: 'dashboard' },
+      { tab: 'customers', permission: 'customers' },
+      { tab: 'work-orders', permission: 'work_orders' },
+      { tab: 'invoices', permission: 'invoices' },
+      { tab: 'inventory', permission: 'inventory' },
+      { tab: 'expenses', permission: 'expenses' },
+      { tab: 'reports', permission: 'reports' },
+      { tab: 'technicians', permission: 'technicians' },
+      { tab: 'settings', permission: 'settings' },
+      { tab: 'users', permission: 'users' },
+    ];
+
+    for (const { tab, permission } of tabPermissions) {
+      if (hasPermission(permission as any)) {
+        return tab;
+      }
+    }
+
+    return 'dashboard';
+  };
+
+  useEffect(() => {
+    if (user && !loading) {
+      const currentTabPermission = getTabPermission(activeTab);
+      if (currentTabPermission && !hasPermission(currentTabPermission as any)) {
+        const defaultTab = getDefaultAllowedTab();
+        setActiveTab(defaultTab);
+      }
+    }
+  }, [user, loading]);
+
+  const getTabPermission = (tab: ViewType): string | null => {
+    const permissionMap: Record<ViewType, string | null> = {
+      'dashboard': 'dashboard',
+      'customers': 'customers',
+      'work-orders': 'work_orders',
+      'new-work-order': 'work_orders',
+      'work-order-details': 'work_orders',
+      'invoices': 'invoices',
+      'new-invoice': 'invoices',
+      'invoice-details': 'invoices',
+      'inventory': 'inventory',
+      'expenses': 'expenses',
+      'reports': 'reports',
+      'technicians': 'technicians',
+      'settings': 'settings',
+      'users': 'users',
+    };
+    return permissionMap[tab] || null;
+  };
 
   if (loading) {
     return (

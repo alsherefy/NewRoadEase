@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { DollarSign, ClipboardList, Users, TrendingUp } from 'lucide-react';
+import { DollarSign, ClipboardList, Users, TrendingUp, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../utils/numberUtils';
 import { dashboardService } from '../services';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Stats {
   totalRevenue: number;
@@ -13,6 +14,7 @@ interface Stats {
 
 export function Dashboard() {
   const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const [stats, setStats] = useState<Stats>({
     totalRevenue: 0,
     completedOrders: 0,
@@ -62,6 +64,18 @@ export function Dashboard() {
       color: 'bg-gradient-to-br from-teal-500 to-teal-600',
     },
   ];
+
+  if (!hasPermission('dashboard')) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <ShieldAlert className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">غير مصرح</h3>
+          <p className="text-gray-600">ليس لديك صلاحية لعرض هذه الصفحة</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

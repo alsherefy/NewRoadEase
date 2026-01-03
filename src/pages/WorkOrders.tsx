@@ -16,7 +16,7 @@ interface WorkOrdersProps {
 
 export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersProps) {
   const { t } = useTranslation();
-  const { hasPermission, isAdmin, isCustomerServiceOrAdmin } = useAuth();
+  const { hasPermission, isAdmin, isCustomerServiceOrAdmin, hasDetailedPermission } = useAuth();
   const toast = useToast();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,13 +133,11 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
     return <div className="text-center py-8">{t('common.loading')}</div>;
   }
 
-  const canEdit = isAdmin() || hasPermission('work_orders', true);
-
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{t('work_orders.title')}</h2>
-        {canEdit && (
+        {hasDetailedPermission('work_orders.create') && (
           <button
             onClick={onNewOrder}
             className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-600 text-white px-4 py-3 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium min-h-[44px]"
@@ -241,7 +239,7 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        {isCustomerServiceOrAdmin() && onEditOrder && (
+                        {hasDetailedPermission('work_orders.update') && onEditOrder && (
                           <button
                             onClick={() => onEditOrder(order.id)}
                             className="inline-flex items-center gap-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 px-3 py-2 rounded-lg transition-all"
@@ -250,7 +248,7 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
                             <Edit className="h-4 w-4" />
                           </button>
                         )}
-                        {isCustomerServiceOrAdmin() && (
+                        {hasDetailedPermission('work_orders.delete') && (
                           <button
                             onClick={() => handleDeleteClick(order.id, order.order_number)}
                             className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-2 rounded-lg transition-all"
@@ -329,7 +327,7 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
                     <Eye className="h-5 w-5" />
                     <span className="font-medium">{t('common.view')}</span>
                   </button>
-                  {isCustomerServiceOrAdmin() && onEditOrder && (
+                  {hasDetailedPermission('work_orders.update') && onEditOrder && (
                     <button
                       onClick={() => onEditOrder(order.id)}
                       className="flex items-center justify-center bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition-colors min-h-[44px] min-w-[44px]"
@@ -337,7 +335,7 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
                       <Edit className="h-5 w-5" />
                     </button>
                   )}
-                  {isCustomerServiceOrAdmin() && (
+                  {hasDetailedPermission('work_orders.delete') && (
                     <button
                       onClick={() => handleDeleteClick(order.id, order.order_number)}
                       className="flex items-center justify-center bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors min-h-[44px] min-w-[44px]"

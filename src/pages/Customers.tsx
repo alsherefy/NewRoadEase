@@ -18,7 +18,7 @@ interface VehicleFormData {
 
 export function Customers() {
   const { t } = useTranslation();
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, hasDetailedPermission } = useAuth();
   const toast = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirm();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -356,7 +356,7 @@ export function Customers() {
     return <div className="text-center py-8">{t('common.loading')}</div>;
   }
 
-  const canEdit = isAdmin() || hasPermission('customers', true);
+  const canEdit = hasDetailedPermission('customers.create');
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -666,18 +666,22 @@ export function Customers() {
                   </div>
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <button
-                    onClick={() => handleEditCustomer(customer)}
-                    className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-1 rounded transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCustomer(customer.id)}
-                    className="bg-red-500 bg-opacity-80 hover:bg-opacity-100 text-white p-1 rounded transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                  {hasDetailedPermission('customers.update') && (
+                    <button
+                      onClick={() => handleEditCustomer(customer)}
+                      className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-1 rounded transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </button>
+                  )}
+                  {hasDetailedPermission('customers.delete') && (
+                    <button
+                      onClick={() => handleDeleteCustomer(customer.id)}
+                      className="bg-red-500 bg-opacity-80 hover:bg-opacity-100 text-white p-1 rounded transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -705,18 +709,22 @@ export function Customers() {
                             </p>
                           </div>
                           <div className="flex space-x-1 space-x-reverse">
-                            <button
-                              onClick={() => handleEditVehicle(vehicle)}
-                              className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteVehicle(vehicle.id)}
-                              className="text-red-600 hover:bg-red-50 p-1.5 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {hasDetailedPermission('vehicles.update') && (
+                              <button
+                                onClick={() => handleEditVehicle(vehicle)}
+                                className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                            )}
+                            {hasDetailedPermission('vehicles.delete') && (
+                              <button
+                                onClick={() => handleDeleteVehicle(vehicle.id)}
+                                className="text-red-600 hover:bg-red-50 p-1.5 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         {vehicle.notes && (
@@ -731,13 +739,15 @@ export function Customers() {
                   <span className="text-xs text-gray-500">{t('customers.no_vehicles')}</span>
                 )}
 
-                <button
-                  onClick={() => handleAddVehicle(customer.id)}
-                  className="flex items-center space-x-1 space-x-reverse bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-colors text-xs whitespace-nowrap ml-auto min-h-[36px]"
-                >
-                  <Plus className="h-3 w-3" />
-                  <span>{t('common.add')}</span>
-                </button>
+                {hasDetailedPermission('vehicles.create') && (
+                  <button
+                    onClick={() => handleAddVehicle(customer.id)}
+                    className="flex items-center space-x-1 space-x-reverse bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-colors text-xs whitespace-nowrap ml-auto min-h-[36px]"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>{t('common.add')}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -766,18 +776,22 @@ export function Customers() {
                     </div>
                   </div>
                   <div className="flex space-x-2 space-x-reverse ml-2">
-                    <button
-                      onClick={() => handleEditCustomer(customer)}
-                      className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                    >
-                      <Edit2 className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCustomer(customer.id)}
-                      className="bg-red-500 bg-opacity-80 hover:bg-opacity-100 text-white p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+                    {hasDetailedPermission('customers.update') && (
+                      <button
+                        onClick={() => handleEditCustomer(customer)}
+                        className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        <Edit2 className="h-5 w-5" />
+                      </button>
+                    )}
+                    {hasDetailedPermission('customers.delete') && (
+                      <button
+                        onClick={() => handleDeleteCustomer(customer.id)}
+                        className="bg-red-500 bg-opacity-80 hover:bg-opacity-100 text-white p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -788,13 +802,15 @@ export function Customers() {
                     <Car className="h-5 w-5" />
                     <span>{t('customers.customer_vehicles')} ({vehicles[customer.id]?.length || 0})</span>
                   </div>
-                  <button
-                    onClick={() => handleAddVehicle(customer.id)}
-                    className="flex items-center space-x-1 space-x-reverse bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap min-h-[44px]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>{t('common.add')}</span>
-                  </button>
+                  {hasDetailedPermission('vehicles.create') && (
+                    <button
+                      onClick={() => handleAddVehicle(customer.id)}
+                      className="flex items-center space-x-1 space-x-reverse bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap min-h-[44px]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>{t('common.add')}</span>
+                    </button>
+                  )}
                 </div>
 
                 {vehicles[customer.id] && vehicles[customer.id].length > 0 ? (
@@ -815,18 +831,22 @@ export function Customers() {
                             </p>
                           </div>
                           <div className="flex space-x-1 space-x-reverse ml-2">
-                            <button
-                              onClick={() => handleEditVehicle(vehicle)}
-                              className="text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                            >
-                              <Edit2 className="h-5 w-5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteVehicle(vehicle.id)}
-                              className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </button>
+                            {hasDetailedPermission('vehicles.update') && (
+                              <button
+                                onClick={() => handleEditVehicle(vehicle)}
+                                className="text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              >
+                                <Edit2 className="h-5 w-5" />
+                              </button>
+                            )}
+                            {hasDetailedPermission('vehicles.delete') && (
+                              <button
+                                onClick={() => handleDeleteVehicle(vehicle.id)}
+                                className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         {vehicle.notes && (

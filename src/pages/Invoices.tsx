@@ -39,7 +39,7 @@ interface InvoicesProps {
 
 export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: InvoicesProps) {
   const { t } = useTranslation();
-  const { isCustomerServiceOrAdmin } = useAuth();
+  const { isCustomerServiceOrAdmin, hasDetailedPermission } = useAuth();
   const toast = useToast();
   const [invoices, setInvoices] = useState<(Invoice & { customer?: Customer })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,13 +213,15 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{t('invoices.title')}</h2>
           <p className="text-gray-500 mt-1 text-sm sm:text-base">{t('invoices.invoice_info')}</p>
         </div>
-        <button
-          onClick={onNewInvoice}
-          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-3 rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 duration-200 min-h-[44px]"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="font-semibold">{t('invoices.new_invoice')}</span>
-        </button>
+        {hasDetailedPermission('invoices.create') && (
+          <button
+            onClick={onNewInvoice}
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-3 rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 duration-200 min-h-[44px]"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="font-semibold">{t('invoices.new_invoice')}</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -442,7 +444,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          {isCustomerServiceOrAdmin() && onEditInvoice && (
+                          {hasDetailedPermission('invoices.update') && onEditInvoice && (
                             <button
                               onClick={() => onEditInvoice(invoice.id)}
                               className="inline-flex items-center gap-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 px-3 py-2 rounded-lg transition-all"
@@ -451,7 +453,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
                               <Edit className="h-4 w-4" />
                             </button>
                           )}
-                          {isCustomerServiceOrAdmin() && (
+                          {hasDetailedPermission('invoices.delete') && (
                             <button
                               onClick={() => handleDeleteClick(invoice.id, invoice.invoice_number)}
                               className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-2 rounded-lg transition-all"
@@ -513,7 +515,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
                         >
                           <Eye className="h-5 w-5" />
                         </button>
-                        {isCustomerServiceOrAdmin() && onEditInvoice && (
+                        {hasDetailedPermission('invoices.update') && onEditInvoice && (
                           <button
                             onClick={() => onEditInvoice(invoice.id)}
                             className="flex items-center justify-center bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors min-h-[44px] min-w-[44px]"
@@ -521,7 +523,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
                             <Edit className="h-5 w-5" />
                           </button>
                         )}
-                        {isCustomerServiceOrAdmin() && (
+                        {hasDetailedPermission('invoices.delete') && (
                           <button
                             onClick={() => handleDeleteClick(invoice.id, invoice.invoice_number)}
                             className="flex items-center justify-center bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors min-h-[44px] min-w-[44px]"
