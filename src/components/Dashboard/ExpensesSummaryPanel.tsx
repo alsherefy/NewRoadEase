@@ -26,7 +26,7 @@ interface ExpensesSummaryPanelProps {
 
 export default function ExpensesSummaryPanel({ data, onViewExpenses }: ExpensesSummaryPanelProps) {
   const { t } = useTranslation();
-  const formatCurrency = useFormatNumber();
+  const { formatCurrency } = useFormatNumber();
 
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {

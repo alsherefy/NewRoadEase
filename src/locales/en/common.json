@@ -102,7 +102,11 @@
     "monthlyTotal": "Monthly Total",
     "byCategory": "By Category",
     "active": "Active",
-    "items": "Items"
+    "items": "Items",
+    "gettingStarted": "Getting Started",
+    "tip1": "Start by adding customers and their vehicles from the Customers menu",
+    "tip2": "Create work orders and add required services and spare parts",
+    "tip3": "Issue invoices and track payments from the Invoices page"
   },
   "customers": {
     "title": "Manage Customers and Vehicles",

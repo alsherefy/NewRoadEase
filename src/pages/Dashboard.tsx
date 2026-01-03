@@ -161,9 +161,28 @@ export function Dashboard() {
       {!hasAnySections && (
         <div className="bg-white rounded-xl shadow-md p-8">
           <h3 className="text-2xl font-bold text-gray-800 mb-4">{t('dashboard.welcome')}</h3>
-          <p className="text-gray-600 text-lg leading-relaxed">
+          <p className="text-gray-600 text-lg leading-relaxed mb-6">
             {t('dashboard.welcome_message')}
           </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-blue-900 mb-3">
+              {t('dashboard.gettingStarted')}
+            </h4>
+            <ul className="space-y-2 text-blue-800">
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600">•</span>
+                <span>{t('dashboard.tip1')}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600">•</span>
+                <span>{t('dashboard.tip2')}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600">•</span>
+                <span>{t('dashboard.tip3')}</span>
+              </li>
+            </ul>
+          </div>
         </div>
       )}
 

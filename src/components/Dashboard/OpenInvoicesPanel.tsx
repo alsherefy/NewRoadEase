@@ -36,7 +36,7 @@ interface OpenInvoicesPanelProps {
 
 export default function OpenInvoicesPanel({ data, showAmounts = true, onViewInvoice, onViewAll }: OpenInvoicesPanelProps) {
   const { t } = useTranslation();
-  const formatCurrency = useFormatNumber();
+  const { formatCurrency } = useFormatNumber();
 
   const getStatusColor = (status: string) => {
     switch (status) {
