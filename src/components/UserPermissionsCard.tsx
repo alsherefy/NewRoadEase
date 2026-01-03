@@ -15,8 +15,6 @@ interface Permission {
   key: string;
   resource: string;
   action: string;
-  name_ar: string;
-  name_en: string;
 }
 
 interface GroupedPermissions {
@@ -40,7 +38,7 @@ export function UserPermissionsCard({ user, onSave }: UserPermissionsCardProps) 
       const [allPerms, userOverrides] = await Promise.all([
         supabase
           .from('permissions')
-          .select('id, key, resource, action, name_ar, name_en')
+          .select('id, key, resource, action')
           .eq('is_active', true)
           .order('resource')
           .order('display_order'),
@@ -261,7 +259,7 @@ export function UserPermissionsCard({ user, onSave }: UserPermissionsCardProps) 
                           className="w-4 h-4 text-green-600 rounded focus:ring-2 focus:ring-green-500"
                         />
                         <span className={`text-xs font-medium ${getActionColor(permission.action)}`}>
-                          {i18n.language === 'ar' ? permission.name_ar : permission.name_en}
+                          {t(`permissions.details.${permission.key}.name`)}
                         </span>
                       </label>
                     ))}
