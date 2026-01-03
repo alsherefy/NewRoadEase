@@ -48,9 +48,9 @@ export default function OpenOrdersPanel({ data, onViewOrder, onViewAll }: OpenOr
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'in_progress':
-        return t('workOrders.inProgress');
+        return t('status.in_progress');
       case 'pending':
-        return t('workOrders.pending');
+        return t('status.pending');
       default:
         return status;
     }

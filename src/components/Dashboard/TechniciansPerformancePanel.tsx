@@ -22,10 +22,9 @@ export default function TechniciansPerformancePanel({ data, onViewTechnicians }:
 
   const getSpecializationLabel = (spec: string) => {
     const labels: Record<string, string> = {
-      general: t('technicians.general'),
-      electrical: t('technicians.electrical'),
-      mechanical: t('technicians.mechanical'),
-      body: t('technicians.body'),
+      electrician: t('technicians.specializations.electrician'),
+      mechanic: t('technicians.specializations.mechanic'),
+      bodywork: t('technicians.specializations.bodywork'),
       painting: t('technicians.painting'),
       ac: t('technicians.ac'),
     };
