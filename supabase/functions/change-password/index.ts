@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { ApiError } from "../_shared/types.ts";
+import { ApiError, ForbiddenError } from "../_shared/types.ts";
 
 interface ChangePasswordRequest {
   user_id: string;
@@ -15,6 +16,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const auth = await authenticateWithPermissions(req);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -25,48 +28,29 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new ApiError("غير مصرح", "UNAUTHORIZED", 401);
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !requestingUser) {
-      throw new ApiError("غير مصرح", "UNAUTHORIZED", 401);
-    }
-
-    const { data: requestingUserData } = await supabaseAdmin
-      .from("users")
-      .select("role")
-      .eq("id", requestingUser.id)
-      .single();
-
     const body: ChangePasswordRequest = await req.json();
     const { user_id, new_password, current_password } = body;
 
     if (!user_id || !new_password) {
-      throw new ApiError("معرف المستخدم وكلمة المرور الجديدة مطلوبة", "VALIDATION_ERROR", 400);
+      throw new ApiError("معرف المستخدم وكلمة المرور الجديدة مطلوبة - User ID and new password are required", "VALIDATION_ERROR", 400);
     }
 
     if (new_password.length < 6) {
-      throw new ApiError("كلمة المرور يجب أن تكون 6 أحرف على الأقل", "VALIDATION_ERROR", 400);
+      throw new ApiError("كلمة المرور يجب أن تكون 6 أحرف على الأقل - Password must be at least 6 characters", "VALIDATION_ERROR", 400);
     }
 
-    const isOwnPassword = user_id === requestingUser.id;
-    const isAdmin = requestingUserData?.role === "admin";
+    const isOwnPassword = user_id === auth.userId;
 
-    if (!isOwnPassword && !isAdmin) {
-      throw new ApiError("ليس لديك صلاحية لتغيير كلمة مرور هذا المستخدم", "FORBIDDEN", 403);
+    if (!isOwnPassword && !auth.isAdmin) {
+      throw new ForbiddenError("ليس لديك صلاحية لتغيير كلمة مرور هذا المستخدم - You do not have permission to change this user's password");
     }
 
-    if (isOwnPassword && !isAdmin && current_password) {
+    if (isOwnPassword && !auth.isAdmin && current_password) {
       const { data: userEmail } = await supabaseAdmin
         .from("users")
         .select("email")
         .eq("id", user_id)
-        .single();
+        .maybeSingle();
 
       if (userEmail) {
         const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -82,7 +66,7 @@ Deno.serve(async (req: Request) => {
         });
 
         if (signInError) {
-          throw new ApiError("كلمة المرور الحالية غير صحيحة", "INVALID_CURRENT_PASSWORD", 400);
+          throw new ApiError("كلمة المرور الحالية غير صحيحة - Current password is incorrect", "INVALID_CURRENT_PASSWORD", 400);
         }
       }
     }
@@ -98,10 +82,9 @@ Deno.serve(async (req: Request) => {
 
     return successResponse({
       success: true,
-      message: "تم تغيير كلمة المرور بنجاح",
+      message: "تم تغيير كلمة المرور بنجاح - Password changed successfully",
     });
-  } catch (err) {
-    console.error("Error in change-password endpoint:", err);
-    return errorResponse(err as Error);
+  } catch (error) {
+    return errorResponse(error);
   }
 });

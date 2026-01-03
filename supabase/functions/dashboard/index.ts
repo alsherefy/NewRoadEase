@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { allRoles } from "../_shared/middleware/authorize.ts";
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
+import { requirePermission } from "../_shared/middleware/permissionChecker.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { getSupabaseClient } from "../_shared/utils/supabase.ts";
 import { ApiError } from "../_shared/types.ts";
@@ -11,15 +11,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const user = await authenticateRequest(req);
-    allRoles(user);
+    const auth = await authenticateWithPermissions(req);
+    requirePermission(auth, 'dashboard.view');
 
     const supabase = getSupabaseClient();
 
     switch (req.method) {
       case "GET": {
         const { data, error } = await supabase
-          .rpc("get_dashboard_stats", { p_organization_id: user.organizationId })
+          .rpc("get_dashboard_stats", { p_organization_id: auth.organizationId })
           .maybeSingle();
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);

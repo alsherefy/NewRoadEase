@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { allRoles } from "../_shared/middleware/authorize.ts";
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
+import { requirePermission } from "../_shared/middleware/permissionChecker.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -11,8 +11,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const auth = await authenticateRequest(req);
-    allRoles(auth);
+    const auth = await authenticateWithPermissions(req);
+    requirePermission(auth, 'reports.view');
 
     const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
@@ -163,8 +163,7 @@ Deno.serve(async (req: Request) => {
       default:
         throw new ApiError("Invalid report type. Use: overview, inventory, or technicians", "INVALID_REPORT_TYPE", 400);
     }
-  } catch (err) {
-    console.error("Error in reports endpoint:", err);
-    return errorResponse(err as Error);
+  } catch (error) {
+    return errorResponse(error);
   }
 });

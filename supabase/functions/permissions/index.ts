@@ -1,79 +1,22 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
-
-interface ApiResponse<T = any> {
-  success: boolean;
-  data: T | null;
-  error: { code: string; message: string; details?: any } | null;
-}
-
-function successResponse<T>(data: T, status = 200): Response {
-  const response: ApiResponse<T> = { success: true, data, error: null };
-  return new Response(JSON.stringify(response), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-function errorResponse(message: string, status = 400, code = 'ERROR'): Response {
-  const response: ApiResponse = { success: false, data: null, error: { code, message } };
-  return new Response(JSON.stringify(response), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-async function authenticateUser(req: Request, supabaseServiceKey: string, supabaseUrl: string) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header');
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-
-  if (error || !user) throw new Error('Invalid or expired token');
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('organization_id, is_active')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (!profile || !profile.is_active) throw new Error('User profile not found or inactive');
-
-  const { data: userRoles } = await supabase
-    .rpc('get_user_roles', { p_user_id: user.id });
-
-  if (!userRoles || userRoles.length === 0) throw new Error('User has no active roles');
-
-  const isAdmin = userRoles[0].role.key === 'admin';
-
-  return { userId: user.id, organizationId: profile.organization_id, isAdmin };
-}
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
+import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { getSupabaseClient } from "../_shared/utils/supabase.ts";
+import { ApiError, ForbiddenError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const auth = await authenticateUser(req, supabaseServiceKey, supabaseUrl);
+    const auth = await authenticateWithPermissions(req);
 
     if (!auth.isAdmin) {
-      throw new Error('Admin access required');
+      throw new ForbiddenError('ليس لديك صلاحية لإدارة الصلاحيات - Only admins can manage permissions');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getSupabaseClient();
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
 
@@ -94,7 +37,7 @@ Deno.serve(async (req: Request) => {
 
         const { data: permissions, error } = await query;
 
-        if (error) throw new Error(error.message);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse(permissions || []);
       }
 
@@ -103,7 +46,7 @@ Deno.serve(async (req: Request) => {
         const permissionKey = url.searchParams.get('permission');
 
         if (!userId || !permissionKey) {
-          throw new Error('user_id and permission are required');
+          throw new ApiError('user_id and permission are required', 'VALIDATION_ERROR', 400);
         }
 
         const { data, error } = await supabase.rpc('check_user_permission', {
@@ -111,7 +54,7 @@ Deno.serve(async (req: Request) => {
           p_permission_key: permissionKey,
         });
 
-        if (error) throw new Error(error.message);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse({ has_permission: data });
       }
     }
@@ -122,7 +65,7 @@ Deno.serve(async (req: Request) => {
         const { user_id, permissions } = body;
 
         if (!user_id || !permissions || !Array.isArray(permissions)) {
-          throw new Error('user_id and permissions array are required');
+          throw new ApiError('user_id and permissions array are required', 'VALIDATION_ERROR', 400);
         }
 
         for (const perm of permissions) {
@@ -144,7 +87,7 @@ Deno.serve(async (req: Request) => {
         const { user_id, permission_id, is_granted, reason, expires_at } = body;
 
         if (!user_id || !permission_id || is_granted === undefined) {
-          throw new Error('user_id, permission_id, and is_granted are required');
+          throw new ApiError('user_id, permission_id, and is_granted are required', 'VALIDATION_ERROR', 400);
         }
 
         const { data: override, error } = await supabase
@@ -160,7 +103,7 @@ Deno.serve(async (req: Request) => {
           .select()
           .single();
 
-        if (error) throw new Error(error.message);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse(override);
       }
     }
@@ -174,15 +117,13 @@ Deno.serve(async (req: Request) => {
           .delete()
           .eq('id', overrideId);
 
-        if (error) throw new Error(error.message);
+        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse({ message: 'Permission override deleted successfully' });
       }
     }
 
-    throw new Error('Method not allowed');
-  } catch (err) {
-    console.error('Error in permissions endpoint:', err);
-    const error = err as Error;
-    return errorResponse(error.message, 500, 'ERROR');
+    throw new ApiError('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+  } catch (error) {
+    return errorResponse(error);
   }
 });
