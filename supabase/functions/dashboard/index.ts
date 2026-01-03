@@ -32,66 +32,10 @@ Deno.serve(async (req: Request) => {
             return await getEnhancedDashboard(supabase, auth);
           }
 
-          case "open-orders": {
-            if (!hasPermission(auth, 'dashboard.view_open_orders')) {
-              throw new ApiError("ليس لديك صلاحية لعرض الطلبات المفتوحة", "FORBIDDEN", 403);
-            }
-            return await getOpenOrders(supabase, auth);
-          }
-
-          case "open-invoices": {
-            if (!hasPermission(auth, 'dashboard.view_open_invoices')) {
-              throw new ApiError("ليس لديك صلاحية لعرض الفواتير المفتوحة", "FORBIDDEN", 403);
-            }
-            return await getOpenInvoices(supabase, auth);
-          }
-
-          case "financial-summary": {
-            if (!hasPermission(auth, 'dashboard.view_financial_stats')) {
-              throw new ApiError("ليس لديك صلاحية لعرض البيانات المالية", "FORBIDDEN", 403);
-            }
-            return await getFinancialSummary(supabase, auth);
-          }
-
-          case "inventory-alerts": {
-            if (!hasPermission(auth, 'dashboard.view_inventory_alerts')) {
-              throw new ApiError("ليس لديك صلاحية لعرض تنبيهات المخزون", "FORBIDDEN", 403);
-            }
-            return await getInventoryAlerts(supabase, auth);
-          }
-
-          case "expenses-summary": {
-            if (!hasPermission(auth, 'dashboard.view_expenses')) {
-              throw new ApiError("ليس لديك صلاحية لعرض ملخص المصروفات", "FORBIDDEN", 403);
-            }
-            return await getExpensesSummary(supabase, auth);
-          }
-
-          case "technicians-performance": {
-            if (!hasPermission(auth, 'dashboard.view_technicians_performance')) {
-              throw new ApiError("ليس لديك صلاحية لعرض أداء الفنيين", "FORBIDDEN", 403);
-            }
-            return await getTechniciansPerformance(supabase, auth);
-          }
-
-          case "preferences": {
-            return await getDashboardPreferences(supabase, auth);
-          }
-
           default: {
             return await getBasicStats(supabase, auth);
           }
         }
-      }
-
-      case "POST": {
-        const endpoint = path[path.length - 1];
-
-        if (endpoint === "preferences") {
-          return await saveDashboardPreferences(req, supabase, auth);
-        }
-
-        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
       }
 
       default:
@@ -148,6 +92,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getFinancialSummary(supabase, auth).then(res => {
         result.sections.financialStats = res;
+      }).catch(() => {
+        result.sections.financialStats = null;
       })
     );
   }
@@ -156,6 +102,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getOpenOrders(supabase, auth).then(res => {
         result.sections.openOrders = res;
+      }).catch(() => {
+        result.sections.openOrders = null;
       })
     );
   }
@@ -164,6 +112,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getOpenInvoices(supabase, auth).then(res => {
         result.sections.openInvoices = res;
+      }).catch(() => {
+        result.sections.openInvoices = null;
       })
     );
   }
@@ -172,6 +122,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getInventoryAlerts(supabase, auth).then(res => {
         result.sections.inventoryAlerts = res;
+      }).catch(() => {
+        result.sections.inventoryAlerts = null;
       })
     );
   }
@@ -180,6 +132,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getExpensesSummary(supabase, auth).then(res => {
         result.sections.expenses = res;
+      }).catch(() => {
+        result.sections.expenses = null;
       })
     );
   }
@@ -188,6 +142,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getTechniciansPerformance(supabase, auth).then(res => {
         result.sections.techniciansPerformance = res;
+      }).catch(() => {
+        result.sections.techniciansPerformance = null;
       })
     );
   }
@@ -409,51 +365,4 @@ async function getTechniciansPerformance(supabase: any, auth: any) {
     activeTechnicians: data?.length || 0,
     technicians: data || [],
   };
-}
-
-async function getDashboardPreferences(supabase: any, auth: any) {
-  const { data, error } = await supabase
-    .from('dashboard_preferences')
-    .select('*')
-    .eq('user_id', auth.userId)
-    .maybeSingle();
-
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
-
-  if (!data) {
-    const { data: newPrefs, error: createError } = await supabase
-      .from('dashboard_preferences')
-      .insert({
-        user_id: auth.userId,
-        organization_id: auth.organizationId,
-      })
-      .select()
-      .single();
-
-    if (createError) throw new ApiError(createError.message, "DATABASE_ERROR", 500);
-
-    return successResponse(newPrefs);
-  }
-
-  return successResponse(data);
-}
-
-async function saveDashboardPreferences(req: Request, supabase: any, auth: any) {
-  const body = await req.json();
-
-  const { data, error } = await supabase
-    .from('dashboard_preferences')
-    .upsert({
-      user_id: auth.userId,
-      organization_id: auth.organizationId,
-      visible_sections: body.visible_sections,
-      section_order: body.section_order,
-      preferences: body.preferences,
-    })
-    .select()
-    .single();
-
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
-
-  return successResponse(data);
 }
