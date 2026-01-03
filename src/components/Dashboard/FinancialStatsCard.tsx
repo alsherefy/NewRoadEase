@@ -14,7 +14,7 @@ interface FinancialStatsCardProps {
 
 export default function FinancialStatsCard({ data }: FinancialStatsCardProps) {
   const { t } = useTranslation();
-  const formatCurrency = useFormatNumber();
+  const { formatCurrency } = useFormatNumber();
 
   const stats = [
     {

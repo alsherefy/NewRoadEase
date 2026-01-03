@@ -451,8 +451,12 @@
     "specializations": {
       "electrician": "كهربائي",
       "mechanic": "ميكانيكي",
-      "bodywork": "سمكري"
+      "bodywork": "سمكري",
+      "painting": "دهان",
+      "ac": "تكييف"
     },
+    "painting": "دهان",
+    "ac": "تكييف",
     "allowances": "البدلات",
     "allowances_placeholder": "أدخل قيمة البدلات",
     "view_report": "عرض التقرير",

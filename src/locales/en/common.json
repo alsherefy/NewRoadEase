@@ -451,8 +451,12 @@
     "specializations": {
       "electrician": "Electrician",
       "mechanic": "Mechanic",
-      "bodywork": "Bodywork"
+      "bodywork": "Bodywork",
+      "painting": "Painting",
+      "ac": "AC"
     },
+    "painting": "Painting",
+    "ac": "AC",
     "allowances": "Allowances",
     "allowances_placeholder": "Enter allowances amount",
     "view_report": "View Report",
