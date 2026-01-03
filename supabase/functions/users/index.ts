@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { getAuthenticatedClient } from '../_shared/utils/supabase.ts';
 import { authenticateWithPermissions } from '../_shared/middleware/authWithPermissions.ts';
 import { requirePermission } from '../_shared/middleware/permissionChecker.ts';
 import { ApiError } from '../_shared/types.ts';
@@ -39,9 +39,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const auth = await authenticateWithPermissions(req);
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getAuthenticatedClient(req);
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
