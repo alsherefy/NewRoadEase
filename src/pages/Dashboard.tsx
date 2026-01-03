@@ -219,46 +219,72 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
 
       {hasAnySections && enhancedData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {showFinancialStats && enhancedData.sections.financialStats && (
+          {showFinancialStats && (
             <div className="lg:col-span-2">
-              <FinancialStatsCard data={enhancedData.sections.financialStats} />
+              <FinancialStatsCard data={enhancedData.sections.financialStats || {
+                todayRevenue: 0,
+                weekRevenue: 0,
+                monthRevenue: 0,
+                todayExpenses: 0,
+                netProfit: 0,
+              }} />
             </div>
           )}
 
-          {showOpenOrders && enhancedData.sections.openOrders && (
+          {showOpenOrders && (
             <OpenOrdersPanel
-              data={enhancedData.sections.openOrders}
+              data={enhancedData.sections.openOrders || {
+                inProgress: [],
+                pending: [],
+                totalCount: 0,
+              }}
               onViewOrder={(orderId) => onNavigate?.('work-order-details', orderId)}
               onViewAll={() => onNavigate?.('work-orders')}
             />
           )}
 
-          {showOpenInvoices && enhancedData.sections.openInvoices && (
+          {showOpenInvoices && (
             <OpenInvoicesPanel
-              data={enhancedData.sections.openInvoices}
+              data={enhancedData.sections.openInvoices || {
+                unpaid: [],
+                overdue: [],
+                totalAmount: 0,
+                totalCount: 0,
+              }}
               showAmounts={showFinancialStats}
               onViewInvoice={(invoiceId) => onNavigate?.('invoice-details', invoiceId)}
               onViewAll={() => onNavigate?.('invoices')}
             />
           )}
 
-          {showInventoryAlerts && enhancedData.sections.inventoryAlerts && (
+          {showInventoryAlerts && (
             <InventoryAlertsPanel
-              data={enhancedData.sections.inventoryAlerts}
+              data={enhancedData.sections.inventoryAlerts || {
+                outOfStock: [],
+                lowStock: [],
+                totalLowStockItems: 0,
+              }}
               onViewInventory={() => onNavigate?.('inventory')}
             />
           )}
 
-          {showExpenses && enhancedData.sections.expenses && (
+          {showExpenses && (
             <ExpensesSummaryPanel
-              data={enhancedData.sections.expenses}
+              data={enhancedData.sections.expenses || {
+                dueToday: [],
+                monthlyTotal: 0,
+                byCategory: {},
+              }}
               onViewExpenses={() => onNavigate?.('expenses')}
             />
           )}
 
-          {showTechniciansPerformance && enhancedData.sections.techniciansPerformance && (
+          {showTechniciansPerformance && (
             <TechniciansPerformancePanel
-              data={enhancedData.sections.techniciansPerformance}
+              data={enhancedData.sections.techniciansPerformance || {
+                activeTechnicians: 0,
+                technicians: [],
+              }}
               onViewTechnicians={() => onNavigate?.('technicians')}
             />
           )}

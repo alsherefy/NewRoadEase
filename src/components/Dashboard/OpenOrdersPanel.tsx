@@ -70,9 +70,9 @@ export default function OpenOrdersPanel({ data, onViewOrder, onViewAll }: OpenOr
         </span>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {data.inProgress.length === 0 && data.pending.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">
+          <p className="text-center text-gray-500 py-6">
             {t('dashboard.noOpenOrders')}
           </p>
         ) : (
@@ -81,36 +81,33 @@ export default function OpenOrdersPanel({ data, onViewOrder, onViewAll }: OpenOr
               <div
                 key={order.id}
                 onClick={() => onViewOrder?.(order.id)}
-                className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all duration-200 cursor-pointer hover:bg-blue-50"
+                className="p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all duration-200 cursor-pointer hover:bg-blue-50"
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-gray-900">
-                        {order.order_number}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                          order.status
-                        )}`}
-                      >
-                        {getStatusLabel(order.status)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="font-semibold text-gray-900 whitespace-nowrap">
+                      {order.order_number}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        order.status
+                      )} whitespace-nowrap`}
+                    >
+                      {getStatusLabel(order.status)}
+                    </span>
+                    <span className="text-sm text-gray-600 truncate">
                       {order.customers.name}
-                    </p>
+                    </span>
+                    <span className="text-sm text-gray-500 truncate hidden lg:block">
+                      {order.vehicles.car_make} {order.vehicles.car_model}
+                    </span>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                  <div className="flex items-center gap-2 text-sm text-gray-500 whitespace-nowrap">
+                    <Clock className="w-4 h-4" />
+                    <span>{new Date(order.created_at).toLocaleDateString('ar')}</span>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Clock className="w-4 h-4" />
-                  <span>{new Date(order.created_at).toLocaleDateString('ar')}</span>
-                </div>
-                <p className="text-sm text-gray-700 mt-2 line-clamp-1">
-                  {order.vehicles.car_make} {order.vehicles.car_model} -{' '}
-                  {order.vehicles.plate_number}
-                </p>
               </div>
             ))}
           </>
