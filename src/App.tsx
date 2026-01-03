@@ -109,10 +109,21 @@ function AppContent() {
     return <Login />;
   }
 
+  const handleNavigate = (view: string, id?: string) => {
+    setActiveTab(view as ViewType);
+    if (id) {
+      if (view === 'work-order-details') {
+        setSelectedOrderId(id);
+      } else if (view === 'invoice-details') {
+        setSelectedInvoiceId(id);
+      }
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleNavigate} />;
       case 'customers':
         return <Customers />;
       case 'technicians':

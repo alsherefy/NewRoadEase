@@ -97,7 +97,7 @@ export default function OpenInvoicesPanel({ data, showAmounts = true, onViewInvo
               <div
                 key={invoice.id}
                 onClick={() => onViewInvoice?.(invoice.id)}
-                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
+                className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all duration-200 cursor-pointer hover:bg-blue-50"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">

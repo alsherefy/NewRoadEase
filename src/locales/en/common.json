@@ -55,6 +55,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "subtitle": "Comprehensive overview of workshop performance",
     "welcome": "Welcome to Workshop Management System",
     "welcome_message": "Through this system, you can efficiently manage all workshop operations, from registering maintenance requests and distributing work to technicians, to issuing invoices and evaluating employee performance based on the revenue they generate for the workshop.",
     "total_revenue": "Total Revenue",

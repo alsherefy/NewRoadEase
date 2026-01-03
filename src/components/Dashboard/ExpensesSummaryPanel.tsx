@@ -84,7 +84,7 @@ export default function ExpensesSummaryPanel({ data, onViewExpenses }: ExpensesS
               <div
                 key={installment.id}
                 onClick={onViewExpenses}
-                className="p-3 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
+                className="p-3 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer hover:bg-orange-100 hover:shadow-md transition-all duration-200"
               >
                 <div className="flex items-start justify-between">
                   <div>

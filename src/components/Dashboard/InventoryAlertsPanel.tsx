@@ -55,7 +55,7 @@ export default function InventoryAlertsPanel({ data, onViewInventory }: Inventor
                     <div
                       key={part.id}
                       onClick={onViewInventory}
-                      className="p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+                      className="p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 hover:shadow-md transition-all duration-200"
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -83,7 +83,7 @@ export default function InventoryAlertsPanel({ data, onViewInventory }: Inventor
                     <div
                       key={part.id}
                       onClick={onViewInventory}
-                      className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
+                      className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 hover:shadow-md transition-all duration-200"
                     >
                       <div className="flex items-start justify-between">
                         <div>

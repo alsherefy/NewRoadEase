@@ -56,7 +56,7 @@ export default function TechniciansPerformancePanel({ data, onViewTechnicians }:
               <div
                 key={technician.id}
                 onClick={onViewTechnicians}
-                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
+                className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all duration-200 cursor-pointer hover:bg-blue-50"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

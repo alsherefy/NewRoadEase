@@ -38,7 +38,11 @@ interface EnhancedDashboardData {
   };
 }
 
-export function Dashboard() {
+interface DashboardProps {
+  onNavigate?: (view: string, id?: string) => void;
+}
+
+export function Dashboard({ onNavigate }: DashboardProps = {}) {
   const { t } = useTranslation();
   const { hasPermission, hasDetailedPermission } = useAuth();
   const [stats, setStats] = useState<Stats>({
@@ -96,6 +100,25 @@ export function Dashboard() {
   const showExpenses = hasDetailedPermission('dashboard.view_expenses');
   const showTechniciansPerformance = hasDetailedPermission('dashboard.view_technicians_performance');
 
+  const handleCardClick = (cardType: string) => {
+    if (!onNavigate) return;
+
+    switch (cardType) {
+      case 'revenue':
+        onNavigate('reports');
+        break;
+      case 'work_orders':
+        onNavigate('work-orders');
+        break;
+      case 'customers':
+        onNavigate('customers');
+        break;
+      case 'technicians':
+        onNavigate('technicians');
+        break;
+    }
+  };
+
   const statCards = [
     {
       title: t('dashboard.total_revenue'),
@@ -103,6 +126,7 @@ export function Dashboard() {
       icon: DollarSign,
       color: 'bg-gradient-to-br from-green-500 to-green-600',
       show: true,
+      onClick: () => handleCardClick('revenue'),
     },
     {
       title: t('dashboard.completed_work_orders'),
@@ -110,6 +134,7 @@ export function Dashboard() {
       icon: ClipboardList,
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
       show: showOpenOrders,
+      onClick: () => handleCardClick('work_orders'),
     },
     {
       title: t('dashboard.active_customers'),
@@ -117,6 +142,7 @@ export function Dashboard() {
       icon: Users,
       color: 'bg-gradient-to-br from-orange-500 to-orange-600',
       show: true,
+      onClick: () => handleCardClick('customers'),
     },
     {
       title: t('dashboard.active_technicians'),
@@ -124,6 +150,7 @@ export function Dashboard() {
       icon: TrendingUp,
       color: 'bg-gradient-to-br from-teal-500 to-teal-600',
       show: showTechniciansPerformance,
+      onClick: () => handleCardClick('technicians'),
     },
   ].filter(card => card.show);
 
@@ -131,9 +158,12 @@ export function Dashboard() {
                          showInventoryAlerts || showExpenses || showTechniciansPerformance;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold text-gray-800">{t('dashboard.title')}</h2>
+    <div className="space-y-6 animate-fadeIn">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800">{t('dashboard.title')}</h2>
+          <p className="text-gray-600 mt-1">{t('dashboard.subtitle')}</p>
+        </div>
       </div>
 
       {statCards.length > 0 && (
@@ -143,7 +173,8 @@ export function Dashboard() {
             return (
               <div
                 key={card.title}
-                className={`${card.color} rounded-xl shadow-lg p-6 text-white transform transition-transform hover:scale-105`}
+                onClick={card.onClick}
+                className={`${card.color} rounded-xl shadow-lg p-6 text-white transform transition-all duration-200 hover:scale-105 hover:shadow-2xl cursor-pointer`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -195,26 +226,41 @@ export function Dashboard() {
           )}
 
           {showOpenOrders && enhancedData.sections.openOrders && (
-            <OpenOrdersPanel data={enhancedData.sections.openOrders} />
+            <OpenOrdersPanel
+              data={enhancedData.sections.openOrders}
+              onViewOrder={(orderId) => onNavigate?.('work-order-details', orderId)}
+              onViewAll={() => onNavigate?.('work-orders')}
+            />
           )}
 
           {showOpenInvoices && enhancedData.sections.openInvoices && (
             <OpenInvoicesPanel
               data={enhancedData.sections.openInvoices}
               showAmounts={showFinancialStats}
+              onViewInvoice={(invoiceId) => onNavigate?.('invoice-details', invoiceId)}
+              onViewAll={() => onNavigate?.('invoices')}
             />
           )}
 
           {showInventoryAlerts && enhancedData.sections.inventoryAlerts && (
-            <InventoryAlertsPanel data={enhancedData.sections.inventoryAlerts} />
+            <InventoryAlertsPanel
+              data={enhancedData.sections.inventoryAlerts}
+              onViewInventory={() => onNavigate?.('inventory')}
+            />
           )}
 
           {showExpenses && enhancedData.sections.expenses && (
-            <ExpensesSummaryPanel data={enhancedData.sections.expenses} />
+            <ExpensesSummaryPanel
+              data={enhancedData.sections.expenses}
+              onViewExpenses={() => onNavigate?.('expenses')}
+            />
           )}
 
           {showTechniciansPerformance && enhancedData.sections.techniciansPerformance && (
-            <TechniciansPerformancePanel data={enhancedData.sections.techniciansPerformance} />
+            <TechniciansPerformancePanel
+              data={enhancedData.sections.techniciansPerformance}
+              onViewTechnicians={() => onNavigate?.('technicians')}
+            />
           )}
         </div>
       )}
