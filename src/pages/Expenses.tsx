@@ -7,6 +7,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { useTranslation } from 'react-i18next';
 import { normalizeNumberInput, formatToFixed } from '../utils/numberUtils';
 import { ExpenseInstallments } from '../components/ExpenseInstallments';
+import { getErrorMessage } from '../utils/errorHandler';
 
 interface Expense {
   id: string;
@@ -129,9 +130,9 @@ export function Expenses() {
 
       resetForm();
       fetchExpenses();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving expense:', error);
-      toast.error(t('expenses.error_create'));
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -151,9 +152,9 @@ export function Expenses() {
       await expensesService.deleteExpense(id);
       toast.success(t('expenses.success_deleted'));
       fetchExpenses();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting expense:', error);
-      toast.error(t('expenses.error_delete'));
+      toast.error(getErrorMessage(error));
     }
   };
 

@@ -6,6 +6,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { useTranslation } from 'react-i18next';
 import { normalizeNumberInput, formatToFixed } from '../utils/numberUtils';
 import { inventoryService } from '../services';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export function Inventory() {
   const { t } = useTranslation();
@@ -102,9 +103,9 @@ export function Inventory() {
 
       handleCloseModal();
       fetchSpareParts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving spare part:', error);
-      toast.error(t('inventory.error_create'));
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -122,9 +123,9 @@ export function Inventory() {
       await inventoryService.deleteSparePart(id);
       toast.success(t('inventory.success_deleted'));
       fetchSpareParts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting spare part:', error);
-      toast.error(t('inventory.error_delete'));
+      toast.error(getErrorMessage(error));
     }
   };
 
