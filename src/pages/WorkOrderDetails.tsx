@@ -254,14 +254,6 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
 
       const allItems = [...serviceItems, ...partItems];
 
-      console.log('Creating invoice items:', {
-        serviceItemsCount: serviceItems.length,
-        partItemsCount: partItems.length,
-        totalItems: allItems.length,
-        serviceItems,
-        partItems
-      });
-
       if (allItems.length > 0) {
         const { error: itemsError } = await supabase
           .from('invoice_items')
@@ -271,8 +263,6 @@ export function WorkOrderDetails({ orderId, onBack, onViewInvoice }: WorkOrderDe
           console.error('Error inserting invoice items:', itemsError);
           throw itemsError;
         }
-
-        console.log('Successfully inserted', allItems.length, 'invoice items');
       } else {
         console.warn('No items to insert into invoice');
       }

@@ -35,15 +35,12 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
   // Get user's primary role
   const getUserRole = () => {
-    console.log('👤 getUserRole - userRoles:', userRoles);
     if (!userRoles || userRoles.length === 0) return 'receptionist';
     const role = userRoles[0]?.role?.key;
-    console.log('👤 getUserRole - Selected role:', role);
     return role || 'receptionist';
   };
 
   const userRole = getUserRole();
-  console.log('👤 Navbar - Final userRole:', userRole, 'isAdmin:', isAdmin());
 
   const tabs: Array<{
     id: string;

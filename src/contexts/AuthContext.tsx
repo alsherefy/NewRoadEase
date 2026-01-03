@@ -75,7 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabase.rpc('get_user_all_permissions', { p_user_id: userId })
         ]);
 
-        console.log('🔍 Loading user roles:', { rolesData: rolesResult.data, rolesError: rolesResult.error });
         setUserRoles(rolesResult.data || []);
 
         if (permsResult.data) {

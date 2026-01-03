@@ -81,10 +81,6 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
   }, []);
 
   useEffect(() => {
-    console.log('Tax State Changed:', { taxEnabled, taxRate, taxType });
-  }, [taxEnabled, taxRate, taxType]);
-
-  useEffect(() => {
     if (selectedCustomerId) {
       fetchVehicles(selectedCustomerId);
     }
@@ -277,21 +273,12 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
 
   const calculateTax = () => {
     if (!taxEnabled) {
-      console.log('Tax calculation: Tax is disabled, returning 0');
       return 0;
     }
     const subtotalAfterDiscount = calculateSubtotalAfterDiscount();
     const calculatedTax = taxType === 'inclusive'
       ? (subtotalAfterDiscount * taxRate) / (100 + taxRate)
       : (subtotalAfterDiscount * taxRate) / 100;
-
-    console.log('Tax calculation:', {
-      taxEnabled,
-      taxRate,
-      taxType,
-      subtotalAfterDiscount,
-      calculatedTax
-    });
 
     return calculatedTax;
   };
@@ -412,8 +399,6 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
           card_type: paymentMethod === 'card' ? cardType : null,
           notes
         };
-
-        console.log('Invoice data to be inserted:', invoiceData);
 
         const { data: invoice, error: invoiceError } = await supabase
           .from('invoices')
