@@ -39,6 +39,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "customers": "Customers",
+    "vehicles": "Vehicles",
     "technicians": "Technicians",
     "work_orders": "Work Orders",
     "invoices": "Invoices",

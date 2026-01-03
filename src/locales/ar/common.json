@@ -39,6 +39,7 @@
   "nav": {
     "dashboard": "لوحة التحكم",
     "customers": "العملاء",
+    "vehicles": "المركبات",
     "technicians": "الفنيين",
     "work_orders": "طلبات الصيانة",
     "invoices": "الفواتير",
