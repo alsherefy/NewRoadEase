@@ -464,9 +464,65 @@ interface DashboardStats {
   activeTechnicians: number;
 }
 
+interface EnhancedDashboardData {
+  sections: {
+    financialStats?: any;
+    openOrders?: any;
+    openInvoices?: any;
+    inventoryAlerts?: any;
+    expenses?: any;
+    techniciansPerformance?: any;
+  };
+  permissions: {
+    financialStats: boolean;
+    openOrders: boolean;
+    openInvoices: boolean;
+    inventoryAlerts: boolean;
+    expenses: boolean;
+    techniciansPerformance: boolean;
+    activities: boolean;
+  };
+}
+
 class DashboardService {
   async getStats(): Promise<DashboardStats> {
     return apiClient.get<DashboardStats>('dashboard');
+  }
+
+  async getEnhancedDashboard(): Promise<EnhancedDashboardData> {
+    return apiClient.get<EnhancedDashboardData>('dashboard/enhanced');
+  }
+
+  async getOpenOrders(): Promise<any> {
+    return apiClient.get('dashboard/open-orders');
+  }
+
+  async getOpenInvoices(): Promise<any> {
+    return apiClient.get('dashboard/open-invoices');
+  }
+
+  async getFinancialSummary(): Promise<any> {
+    return apiClient.get('dashboard/financial-summary');
+  }
+
+  async getInventoryAlerts(): Promise<any> {
+    return apiClient.get('dashboard/inventory-alerts');
+  }
+
+  async getExpensesSummary(): Promise<any> {
+    return apiClient.get('dashboard/expenses-summary');
+  }
+
+  async getTechniciansPerformance(): Promise<any> {
+    return apiClient.get('dashboard/technicians-performance');
+  }
+
+  async getDashboardPreferences(): Promise<any> {
+    return apiClient.get('dashboard/preferences');
+  }
+
+  async saveDashboardPreferences(data: any): Promise<any> {
+    return apiClient.post('dashboard/preferences', data);
   }
 }
 
