@@ -1,9 +1,6 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
 import { UnauthorizedError } from "../types.ts";
 import { Role, ALL_ROLES } from "../constants/roles.ts";
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+import { getServiceRoleClient } from "../utils/supabase.ts";;
 
 export interface AuthContext {
   userId: string;
@@ -28,7 +25,7 @@ export async function authenticateWithPermissions(req: Request): Promise<AuthCon
   }
 
   const token = authHeader.replace("Bearer ", "");
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = getServiceRoleClient();
 
   // Step 1: Verify token and get user
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
