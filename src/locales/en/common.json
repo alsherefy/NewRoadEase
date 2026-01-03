@@ -741,6 +741,34 @@
         "name": "View Dashboard",
         "description": "Ability to view dashboard and statistics"
       },
+      "dashboard.view_financial_stats": {
+        "name": "View Financial Statistics",
+        "description": "Ability to view revenue, profits, and financial data on dashboard"
+      },
+      "dashboard.view_open_orders": {
+        "name": "View Open Orders",
+        "description": "Ability to view in-progress and pending work orders on dashboard"
+      },
+      "dashboard.view_open_invoices": {
+        "name": "View Open Invoices",
+        "description": "Ability to view unpaid and overdue invoices on dashboard"
+      },
+      "dashboard.view_inventory_alerts": {
+        "name": "View Inventory Alerts",
+        "description": "Ability to view out-of-stock and low-stock alerts on dashboard"
+      },
+      "dashboard.view_expenses": {
+        "name": "View Expenses Summary",
+        "description": "Ability to view expenses and due installments on dashboard"
+      },
+      "dashboard.view_technicians_performance": {
+        "name": "View Technicians Performance",
+        "description": "Ability to view technicians performance data and metrics on dashboard"
+      },
+      "dashboard.view_activities": {
+        "name": "View Recent Activities",
+        "description": "Ability to view recent activities and operations log on dashboard"
+      },
       "customers.view": {
         "name": "View Customers",
         "description": "Ability to view customers list and details"
