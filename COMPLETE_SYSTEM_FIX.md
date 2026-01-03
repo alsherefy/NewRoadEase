@@ -10,17 +10,38 @@
 
 ### 2️⃣ مشكلة حذف طلبات الصيانة (Fixed)
 - ✅ **المشكلة:** خطأ عند حذف طلب صيانة
-- ✅ **السبب:** work-orders edge function تستخدم SERVICE_ROLE_KEY
+- ✅ **السبب:** work-orders edge function تستخدم SERVICE_ROLE_KEY بشكل خاطئ
 - ✅ **الحل:** استخدام getAuthenticatedClient
 
-### 3️⃣ مشكلة شاملة في Edge Functions (Fixed)
-- ✅ **المشكلة:** معظم edge functions تستخدم SERVICE_ROLE_KEY (تتجاوز RLS)
+### 3️⃣ مشكلة إدارة المستخدمين (Fixed)
+- ✅ **المشكلة:** اختفاء المستخدمين + فشل إنشاء مستخدم جديد
+- ✅ **السبب:** users edge function تستخدم getAuthenticatedClient (لا يمكنه auth.admin)
+- ✅ **الحل:** إعادة استخدام SERVICE_ROLE_KEY (ضروري لـ auth.admin)
+
+### 4️⃣ مشكلة شاملة في Edge Functions (Fixed)
+- ✅ **المشكلة:** بعض edge functions تستخدم SERVICE_ROLE_KEY بدون داعي
 - ✅ **السبب:** عدم استخدام getAuthenticatedClient shared utility
-- ✅ **الحل:** تحديث جميع edge functions
+- ✅ **الحل:** تحديث edge functions المناسبة فقط
 
 ---
 
 ## ✨ الإصلاحات المطبقة / Applied Fixes
+
+## 🎯 القرار الهام / Important Decision
+
+### متى نستخدم SERVICE_ROLE_KEY؟
+
+#### ✅ يجب استخدام SERVICE_ROLE_KEY فقط عندما:
+1. **auth.admin functions** - مثل createUser, updateUserById, deleteUser
+2. **database functions مع SECURITY DEFINER** - مثل generate_invoice_number
+3. **عمليات إدارية نادرة** تحتاج تجاوز RLS لسبب وجيه
+
+#### ✅ استخدم getAuthenticatedClient لـ:
+- جميع عمليات CRUD العادية
+- قراءة/كتابة البيانات
+- أي شيء يجب أن يحترم RLS
+
+---
 
 ### 📱 Frontend Changes
 
@@ -62,14 +83,15 @@ await invoicesService.createInvoice({
 
 ### ⚙️ Backend Changes - Edge Functions
 
-تم تحديث **جميع** edge functions التالية:
+#### ✅ Functions تستخدم SERVICE_ROLE_KEY (ضروري):
+1. **users** - يحتاج auth.admin.createUser/deleteUser ✅
+2. **change-password** - يحتاج auth.admin.updateUserById ✅
 
-#### ✅ Functions Updated:
-1. **invoices** - Fixed ✅
-2. **work-orders** - Fixed ✅
-3. **users** - Fixed ✅
-4. **vehicles** - Fixed ✅
-5. **technicians** - Fixed ✅
+#### ✅ Functions Updated to getAuthenticatedClient:
+3. **invoices** - Fixed ✅
+4. **work-orders** - Fixed ✅
+5. **vehicles** - Fixed ✅
+6. **technicians** - Fixed ✅
 
 #### ✅ Already Correct:
 6. **customers** - Already uses getAuthenticatedClient ✅
@@ -83,8 +105,13 @@ await invoicesService.createInvoice({
 14. **permissions** - Already uses getAuthenticatedClient ✅
 15. **keep-alive** - Simple function, no auth needed ✅
 
-#### 🔒 Special Case:
-16. **change-password** - Uses SERVICE_ROLE_KEY (Correct!)
+#### 🔒 Special Cases (يحتاجون SERVICE_ROLE_KEY):
+16. **users** - Uses SERVICE_ROLE_KEY (Correct!)
+    - يحتاج SERVICE_ROLE_KEY لاستدعاء `auth.admin.createUser()`
+    - يحتاج SERVICE_ROLE_KEY لاستدعاء `auth.admin.deleteUser()`
+    - هذا صحيح ومطلوب
+
+17. **change-password** - Uses SERVICE_ROLE_KEY (Correct!)
     - يحتاج SERVICE_ROLE_KEY لاستدعاء `auth.admin.updateUserById()`
     - هذا صحيح ومطلوب
 
@@ -185,21 +212,22 @@ Frontend → Edge Function (getAuthenticatedClient) → Database
 ## 📊 ملخص الإصلاحات / Summary
 
 ### Edge Functions Fixed:
-| Function | Status Before | Status After |
-|----------|--------------|--------------|
-| invoices | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient |
-| work-orders | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient |
-| users | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient |
-| vehicles | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient |
-| technicians | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient |
+| Function | Status Before | Status After | Reason |
+|----------|--------------|--------------|--------|
+| invoices | ❌ Wrong client | ✅ getAuthenticatedClient | لا يحتاج auth.admin |
+| work-orders | ❌ Wrong client | ✅ getAuthenticatedClient | لا يحتاج auth.admin |
+| users | ❌ Wrong client | ✅ SERVICE_ROLE_KEY | يحتاج auth.admin.createUser |
+| vehicles | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient | لا يحتاج auth.admin |
+| technicians | ❌ SERVICE_ROLE_KEY | ✅ getAuthenticatedClient | لا يحتاج auth.admin |
 
 ### Already Correct:
 - ✅ customers, expenses, inventory, salaries
 - ✅ dashboard, reports, settings
 - ✅ roles, permissions, keep-alive
 
-### Special Case:
-- 🔒 change-password (needs SERVICE_ROLE_KEY - correct!)
+### Special Cases (Need SERVICE_ROLE_KEY):
+- 🔒 users (needs auth.admin.createUser/deleteUser - correct!)
+- 🔒 change-password (needs auth.admin.updateUserById - correct!)
 
 ---
 
@@ -267,13 +295,14 @@ Frontend → Edge Function (getAuthenticatedClient) → Database
    - كود أبسط وأنظف
 ```
 
-### Backend - Edge Functions (5 files):
+### Backend - Edge Functions (6 files):
 ```
-✅ supabase/functions/invoices/index.ts
-✅ supabase/functions/work-orders/index.ts
-✅ supabase/functions/users/index.ts
-✅ supabase/functions/vehicles/index.ts
-✅ supabase/functions/technicians/index.ts
+✅ supabase/functions/invoices/index.ts - getAuthenticatedClient
+✅ supabase/functions/work-orders/index.ts - getAuthenticatedClient
+✅ supabase/functions/users/index.ts - SERVICE_ROLE_KEY (needs auth.admin)
+✅ supabase/functions/vehicles/index.ts - getAuthenticatedClient
+✅ supabase/functions/technicians/index.ts - getAuthenticatedClient
+✅ supabase/functions/change-password/index.ts - SERVICE_ROLE_KEY (needs auth.admin)
 ```
 
 ### Database (1 migration):
@@ -366,19 +395,25 @@ Frontend → Edge Function (getAuthenticatedClient) → Database
 
 ## 📝 ملاحظات مهمة / Important Notes
 
-### 1. change-password function
+### 1. users function
 - ✅ يستخدم SERVICE_ROLE_KEY **عمداً**
-- ✅ ضروري لتحديث كلمات المرور
+- ✅ ضروري لـ auth.admin.createUser/deleteUser
 - ✅ محمي بفحص الصلاحيات
 - ✅ **لا تغير هذا!**
 
-### 2. getAuthenticatedClient
+### 2. change-password function
+- ✅ يستخدم SERVICE_ROLE_KEY **عمداً**
+- ✅ ضروري لـ auth.admin.updateUserById
+- ✅ محمي بفحص الصلاحيات
+- ✅ **لا تغير هذا!**
+
+### 3. getAuthenticatedClient
 - ✅ موجود في `_shared/utils/supabase.ts`
 - ✅ يستخدم ANON_KEY + user token
 - ✅ يحترم RLS تلقائياً
 - ✅ **استخدمه دائماً** (ماعدا حالات خاصة)
 
-### 3. RLS Policies
+### 4. RLS Policies
 - ✅ نشطة على جميع الجداول
 - ✅ تفحص organization_id
 - ✅ تفحص الصلاحيات
