@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, Plus, Trash2, Save, Receipt, Percent, CreditCard, Banknote } from 'lucide-react';
-import { customersService, vehiclesService, workOrdersService, settingsService, ServiceError } from '../services';
+import { customersService, vehiclesService, workOrdersService, settingsService, invoicesService, ServiceError } from '../services';
 import { apiClient } from '../services/apiClient';
+import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { normalizeNumberInput, formatToFixed, toEnglishDigits } from '../utils/numberUtils';
@@ -347,42 +348,20 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
           payment_status: paymentStatus,
           payment_method: paymentMethod,
           card_type: paymentMethod === 'card' ? cardType : null,
-          notes
+          notes,
+          items: items.map(item => ({
+            item_type: 'service',
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total: item.total
+          }))
         };
 
-        const { error: invoiceError } = await supabase
-          .from('invoices')
-          .update(invoiceData)
-          .eq('id', invoiceId);
-
-        if (invoiceError) throw invoiceError;
-
-        await supabase
-          .from('invoice_items')
-          .delete()
-          .eq('invoice_id', invoiceId);
-
-        const invoiceItems = items.map(item => ({
-          invoice_id: invoiceId,
-          item_type: 'service',
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total: item.total
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('invoice_items')
-          .insert(invoiceItems);
-
-        if (itemsError) throw itemsError;
-
+        await invoicesService.updateInvoice(invoiceId, invoiceData);
         toast.success(t('invoices.success_updated'));
       } else {
-        const invoiceNumber = await generateInvoiceNumber();
-
         const invoiceData = {
-          invoice_number: invoiceNumber,
           work_order_id: selectedWorkOrderId || null,
           customer_id: selectedCustomerId,
           vehicle_id: selectedVehicleId || null,
@@ -397,32 +376,17 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
           payment_status: paymentStatus,
           payment_method: paymentMethod,
           card_type: paymentMethod === 'card' ? cardType : null,
-          notes
+          notes,
+          items: items.map(item => ({
+            item_type: 'service',
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total: item.total
+          }))
         };
 
-        const { data: invoice, error: invoiceError } = await supabase
-          .from('invoices')
-          .insert(invoiceData)
-          .select()
-          .single();
-
-        if (invoiceError) throw invoiceError;
-
-        const invoiceItems = items.map(item => ({
-          invoice_id: invoice.id,
-          item_type: 'service',
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total: item.total
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('invoice_items')
-          .insert(invoiceItems);
-
-        if (itemsError) throw itemsError;
-
+        await invoicesService.createInvoice(invoiceData);
         toast.success(t('invoices.success_created'));
       }
 
@@ -433,11 +397,6 @@ export function NewInvoice({ invoiceId, onBack, onSuccess }: NewInvoiceProps) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateInvoiceNumber = async (): Promise<string> => {
-    const data = await apiClient.get<string>('invoices/generate-number');
-    return data;
   };
 
   return (

@@ -1,11 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
 import { requirePermission, hasPermission } from "../_shared/middleware/permissionChecker.ts";
 import { ApiError } from "../_shared/types.ts";
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,20 +71,6 @@ async function validateRequestBody<T>(req: Request, requiredFields?: string[]): 
     }
   }
   return body as T;
-}
-
-
-function getAuthenticatedClient(req: Request) {
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "") || Deno.env.get("SUPABASE_ANON_KEY")!;
-
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
 }
 
 Deno.serve(async (req: Request) => {
