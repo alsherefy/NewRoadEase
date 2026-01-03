@@ -1,10 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
-import { authenticateRequest } from "../_shared/middleware/auth.ts";
-import { adminOnly, checkOwnership } from "../_shared/middleware/authorize.ts";
+import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
+import { requirePermission } from "../_shared/middleware/permissionChecker.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
 import { validateUUID, validateRequestBody } from "../_shared/utils/validation.ts";
-import { RESOURCES } from "../_shared/constants/resources.ts";
 import { ApiError } from "../_shared/types.ts";
 
 Deno.serve(async (req: Request) => {
@@ -13,7 +12,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const auth = await authenticateRequest(req);
+    const auth = await authenticateWithPermissions(req);
     const supabase = getAuthenticatedClient(req);
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
@@ -24,7 +23,7 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case "GET": {
-        adminOnly(auth);
+        requirePermission(auth, 'salaries.view');
 
         if (salaryId) {
           validateUUID(salaryId, "Salary ID");
@@ -57,7 +56,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case "POST": {
-        adminOnly(auth);
+        requirePermission(auth, 'salaries.create');
 
         const body = await validateRequestBody(req, ["technician_id", "month", "year", "amount"]);
         const { data: salaryNumber } = await supabase.rpc("generate_salary_number");
@@ -77,10 +76,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "PUT": {
-        adminOnly(auth);
+        requirePermission(auth, 'salaries.update');
         validateUUID(salaryId, "Salary ID");
-
-        await checkOwnership(auth, RESOURCES.SALARIES, salaryId!);
 
         const body = await req.json();
         const { data, error } = await supabase
@@ -96,10 +93,8 @@ Deno.serve(async (req: Request) => {
       }
 
       case "DELETE": {
-        adminOnly(auth);
+        requirePermission(auth, 'salaries.delete');
         validateUUID(salaryId, "Salary ID");
-
-        await checkOwnership(auth, RESOURCES.SALARIES, salaryId!);
 
         const { error } = await supabase
           .from("salaries")
@@ -115,7 +110,6 @@ Deno.serve(async (req: Request) => {
         throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (err) {
-    console.error("Error in salaries endpoint:", err);
     return errorResponse(err as Error);
   }
 });

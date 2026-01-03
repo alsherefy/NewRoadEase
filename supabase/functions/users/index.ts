@@ -1,5 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { authenticateWithPermissions } from '../_shared/middleware/authWithPermissions.ts';
+import { requirePermission } from '../_shared/middleware/permissionChecker.ts';
+import { ApiError } from '../_shared/types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,45 +32,15 @@ function errorResponse(message: string, status = 400, code = 'ERROR'): Response 
   });
 }
 
-async function authenticateUser(req: Request, supabaseServiceKey: string, supabaseUrl: string) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header');
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-
-  if (error || !user) throw new Error('Invalid or expired token');
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('organization_id, is_active')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (!profile || !profile.is_active) throw new Error('User profile not found or inactive');
-
-  const { data: userRoles } = await supabase
-    .rpc('get_user_roles', { p_user_id: user.id });
-
-  if (!userRoles || userRoles.length === 0) throw new Error('User has no active roles');
-
-  const isAdmin = userRoles[0].role.key === 'admin';
-
-  return { userId: user.id, organizationId: profile.organization_id, isAdmin };
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
+    const auth = await authenticateWithPermissions(req);
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const auth = await authenticateUser(req, supabaseServiceKey, supabaseUrl);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
@@ -84,6 +57,8 @@ Deno.serve(async (req: Request) => {
 
     switch (req.method) {
       case 'GET': {
+        requirePermission(auth, 'users.view');
+
         if (userId && action === 'permissions') {
           const { data, error } = await supabase
             .rpc('get_user_all_permissions', { p_user_id: userId });
@@ -149,7 +124,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'POST': {
-        if (!auth.isAdmin) throw new Error('Admin access required');
+        requirePermission(auth, 'users.create');
         if (action !== 'create') throw new Error('Invalid action');
 
         const body = await req.json();
@@ -221,7 +196,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'PUT': {
-        if (!auth.isAdmin) throw new Error('Admin access required');
+        requirePermission(auth, 'users.update');
         if (!userId) throw new Error('User ID required');
 
         const body = await req.json();
@@ -363,7 +338,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'DELETE': {
-        if (!auth.isAdmin) throw new Error('Admin access required');
+        requirePermission(auth, 'users.delete');
         if (!userId) throw new Error('User ID required');
 
         const { error } = await supabase.from('users').delete().eq('id', userId);
@@ -376,8 +351,12 @@ Deno.serve(async (req: Request) => {
         throw new Error('Method not allowed');
     }
   } catch (err) {
-    console.error('Error in users endpoint:', err);
-    const error = err as Error;
+    const error = err as ApiError | Error;
+
+    if (error instanceof ApiError) {
+      return errorResponse(error.message, error.status, error.code);
+    }
+
     return errorResponse(error.message, 500, 'ERROR');
   }
 });
