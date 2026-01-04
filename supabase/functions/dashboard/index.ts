@@ -1,9 +1,170 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
-import { requirePermission, hasPermission } from "../_shared/middleware/permissionChecker.ts";
-import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { getSupabaseClient } from "../_shared/utils/supabase.ts";
-import { ApiError } from "../_shared/types.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+interface AuthContext {
+  userId: string;
+  organizationId: string;
+  email: string;
+  fullName: string;
+  isActive: boolean;
+  roles: string[];
+  isAdmin: boolean;
+  permissions: string[];
+}
+
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string = "ERROR",
+    public status: number = 400
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+class UnauthorizedError extends ApiError {
+  constructor(message: string = "Unauthorized") {
+    super(message, "UNAUTHORIZED", 401);
+  }
+}
+
+class ForbiddenError extends ApiError {
+  constructor(message: string = "Access denied") {
+    super(message, "FORBIDDEN", 403);
+  }
+}
+
+function getServiceRoleClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+function corsResponse(): Response {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
+
+function successResponse<T>(data: T, status: number = 200): Response {
+  return new Response(JSON.stringify({
+    success: true,
+    data,
+    error: null,
+  }), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function errorResponse(error: any, status?: number): Response {
+  const errorStatus = status || error.status || 500;
+  const errorCode = error.code || "ERROR";
+  const errorMessage = error.message || "An unexpected error occurred";
+
+  return new Response(JSON.stringify({
+    success: false,
+    data: null,
+    error: {
+      code: errorCode,
+      message: errorMessage,
+    },
+  }), {
+    status: errorStatus,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+async function authenticateWithPermissions(req: Request): Promise<AuthContext> {
+  const authHeader = req.headers.get("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new UnauthorizedError("Missing or invalid authorization header");
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  const supabase = getServiceRoleClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+  if (authError || !user) {
+    throw new UnauthorizedError("Invalid or expired token");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("organization_id, full_name, is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    throw new UnauthorizedError("User profile not found");
+  }
+
+  if (!profile.is_active) {
+    throw new UnauthorizedError("User account is inactive");
+  }
+
+  if (!profile.organization_id) {
+    throw new UnauthorizedError("User is not assigned to an organization");
+  }
+
+  const { data: userRoles, error: rolesError } = await supabase
+    .rpc("get_user_roles", { p_user_id: user.id });
+
+  if (rolesError || !userRoles || userRoles.length === 0) {
+    throw new UnauthorizedError("User has no active roles assigned");
+  }
+
+  const roles: string[] = userRoles.map((r: any) => r.role.key);
+  const isAdmin = roles.includes('admin');
+
+  let permissions: string[] = [];
+  const { data: permissionsList, error: permissionsError } = await supabase
+    .rpc("get_user_all_permissions", { p_user_id: user.id });
+
+  if (!permissionsError && permissionsList) {
+    permissions = permissionsList.map((p: any) => p.permission_key);
+  }
+
+  return {
+    userId: user.id,
+    organizationId: profile.organization_id,
+    email: user.email || '',
+    fullName: profile.full_name,
+    isActive: profile.is_active,
+    roles,
+    isAdmin,
+    permissions,
+  };
+}
+
+function hasPermission(auth: AuthContext, permissionKey: string): boolean {
+  if (auth.isAdmin) return true;
+  return auth.permissions.includes(permissionKey);
+}
+
+function requirePermission(auth: AuthContext, permissionKey: string): void {
+  if (!hasPermission(auth, permissionKey)) {
+    throw new ForbiddenError(
+      `ليس لديك صلاحية ${permissionKey} - You do not have permission to ${permissionKey}`
+    );
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -15,33 +176,16 @@ Deno.serve(async (req: Request) => {
     requirePermission(auth, 'dashboard.view');
 
     const url = new URL(req.url);
-    const path = url.pathname.split('/').filter(Boolean);
-    const supabase = getSupabaseClient();
+    const pathname = url.pathname;
+    
+    console.log('🎯 Dashboard request:', { pathname, orgId: auth.organizationId });
 
-    console.log('🎯 Dashboard request:', { path, orgId: auth.organizationId });
+    const supabase = getServiceRoleClient();
 
-    switch (req.method) {
-      case "GET": {
-        const endpoint = path[path.length - 1];
-
-        switch (endpoint) {
-          case "dashboard":
-          case "stats": {
-            return await getBasicStats(supabase, auth);
-          }
-
-          case "enhanced": {
-            return await getEnhancedDashboard(supabase, auth);
-          }
-
-          default: {
-            return await getBasicStats(supabase, auth);
-          }
-        }
-      }
-
-      default:
-        throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
+    if (pathname.endsWith('/enhanced') || pathname.includes('/dashboard/enhanced')) {
+      return await getEnhancedDashboard(supabase, auth);
+    } else {
+      return await getBasicStats(supabase, auth);
     }
   } catch (error) {
     console.error('❌ Dashboard error:', error);
@@ -49,7 +193,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-async function getBasicStats(supabase: any, auth: any) {
+async function getBasicStats(supabase: any, auth: AuthContext) {
   const { data, error } = await supabase
     .rpc("get_dashboard_stats", { p_organization_id: auth.organizationId })
     .maybeSingle();
@@ -73,7 +217,7 @@ async function getBasicStats(supabase: any, auth: any) {
   });
 }
 
-async function getEnhancedDashboard(supabase: any, auth: any) {
+async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
   console.log('📊 Starting enhanced dashboard fetch');
   
   const result: any = {
@@ -168,7 +312,7 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
   return successResponse(result);
 }
 
-async function getOpenOrders(supabase: any, auth: any) {
+async function getOpenOrders(supabase: any, auth: AuthContext) {
   console.log('🔧 Fetching open orders for org:', auth.organizationId);
 
   const { data, error } = await supabase
@@ -207,7 +351,7 @@ async function getOpenOrders(supabase: any, auth: any) {
   };
 }
 
-async function getOpenInvoices(supabase: any, auth: any) {
+async function getOpenInvoices(supabase: any, auth: AuthContext) {
   console.log('🔍 Fetching open invoices for org:', auth.organizationId);
 
   const { data, error } = await supabase
@@ -256,7 +400,7 @@ async function getOpenInvoices(supabase: any, auth: any) {
   };
 }
 
-async function getFinancialSummary(supabase: any, auth: any) {
+async function getFinancialSummary(supabase: any, auth: AuthContext) {
   console.log('💰 Fetching financial summary for org:', auth.organizationId);
 
   const today = new Date();
@@ -307,7 +451,7 @@ async function getFinancialSummary(supabase: any, auth: any) {
   return result;
 }
 
-async function getInventoryAlerts(supabase: any, auth: any) {
+async function getInventoryAlerts(supabase: any, auth: AuthContext) {
   console.log('📦 Fetching inventory alerts for org:', auth.organizationId);
 
   const { data, error } = await supabase
@@ -336,7 +480,7 @@ async function getInventoryAlerts(supabase: any, auth: any) {
   };
 }
 
-async function getExpensesSummary(supabase: any, auth: any) {
+async function getExpensesSummary(supabase: any, auth: AuthContext) {
   console.log('💸 Fetching expenses summary for org:', auth.organizationId);
 
   const today = new Date();
@@ -394,7 +538,7 @@ async function getExpensesSummary(supabase: any, auth: any) {
   };
 }
 
-async function getTechniciansPerformance(supabase: any, auth: any) {
+async function getTechniciansPerformance(supabase: any, auth: AuthContext) {
   console.log('👷 Fetching technicians for org:', auth.organizationId);
 
   const { data, error } = await supabase
