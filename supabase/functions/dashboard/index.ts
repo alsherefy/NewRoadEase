@@ -193,6 +193,8 @@ async function getOpenOrders(supabase: any, auth: any) {
 }
 
 async function getOpenInvoices(supabase: any, auth: any) {
+  console.log('🔍 Fetching open invoices for org:', auth.organizationId);
+
   const { data, error } = await supabase
     .from('invoices')
     .select(`
@@ -219,6 +221,8 @@ async function getOpenInvoices(supabase: any, auth: any) {
     .order('created_at', { ascending: false })
     .limit(10);
 
+  console.log('📋 Invoices query result:', { data, error, count: data?.length });
+
   if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
   const unpaid = data?.filter((inv: any) => inv.payment_status === 'unpaid') || [];
@@ -231,6 +235,8 @@ async function getOpenInvoices(supabase: any, auth: any) {
     return sum + (Number(inv.total) - Number(inv.paid_amount));
   }, 0) || 0;
 
+  console.log('✅ Open invoices result:', { unpaidCount: unpaid.length, overdueCount: overdue.length, totalAmount });
+
   return {
     unpaid: unpaid.slice(0, 5),
     overdue: overdue.slice(0, 5),
@@ -240,16 +246,22 @@ async function getOpenInvoices(supabase: any, auth: any) {
 }
 
 async function getFinancialSummary(supabase: any, auth: any) {
+  console.log('💰 Fetching financial summary for org:', auth.organizationId);
+
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
   const startOfWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+
+  console.log('📅 Date ranges:', { startOfDay, startOfWeek, startOfMonth });
 
   const { data: invoices, error: invError } = await supabase
     .from('invoices')
     .select('paid_amount, created_at')
     .eq('organization_id', auth.organizationId)
     .gte('created_at', startOfMonth);
+
+  console.log('📋 Invoices for financial summary:', { count: invoices?.length, error: invError });
 
   if (invError) throw new ApiError(invError.message, "DATABASE_ERROR", 500);
 
@@ -267,17 +279,23 @@ async function getFinancialSummary(supabase: any, auth: any) {
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfDay);
 
+  console.log('💸 Expenses for today:', { count: expenses?.length, error: expError });
+
   if (expError) throw new ApiError(expError.message, "DATABASE_ERROR", 500);
 
   const todayExpenses = expenses?.reduce((sum: number, exp: any) => sum + Number(exp.amount), 0) || 0;
 
-  return {
+  const result = {
     todayRevenue: Number(todayRevenue.toFixed(2)),
     weekRevenue: Number(weekRevenue.toFixed(2)),
     monthRevenue: Number(monthRevenue.toFixed(2)),
     todayExpenses: Number(todayExpenses.toFixed(2)),
     netProfit: Number((todayRevenue - todayExpenses).toFixed(2)),
   };
+
+  console.log('✅ Financial summary result:', result);
+
+  return result;
 }
 
 async function getInventoryAlerts(supabase: any, auth: any) {

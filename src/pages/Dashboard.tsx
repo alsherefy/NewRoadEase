@@ -64,10 +64,14 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
         dashboardService.getStats(),
         dashboardService.getEnhancedDashboard(),
       ]);
+      console.log('📊 Dashboard Basic Stats:', basicStats);
+      console.log('📊 Dashboard Enhanced Data:', enhanced);
+      console.log('📊 Open Invoices:', enhanced?.sections?.openInvoices);
+      console.log('📊 Financial Stats:', enhanced?.sections?.financialStats);
       setStats(basicStats);
       setEnhancedData(enhanced);
     } catch (error) {
-      console.error('Error loading dashboard:', error);
+      console.error('❌ Error loading dashboard:', error);
     } finally {
       setLoading(false);
     }
