@@ -385,7 +385,21 @@ async function getOpenOrders(supabase: any, auth: AuthContext) {
 }
 
 async function getOpenInvoices(supabase: any, auth: AuthContext) {
-  console.log('🔍 Fetching open invoices for org:', auth.organizationId);
+  console.log('🔍 [OPEN INVOICES] Starting query');
+  console.log('🔍 [OPEN INVOICES] User org:', auth.organizationId);
+  console.log('🔍 [OPEN INVOICES] User ID:', auth.userId);
+
+  const { data: allInvoices, error: debugError } = await supabase
+    .from('invoices')
+    .select('invoice_number, payment_status, organization_id, deleted_at')
+    .eq('organization_id', auth.organizationId)
+    .limit(5);
+
+  console.log('🔍 [OPEN INVOICES] Debug - All invoices for org:', {
+    count: allInvoices?.length,
+    error: debugError?.message,
+    sample: allInvoices
+  });
 
   const { data, error } = await supabase
     .from('invoices')
@@ -409,20 +423,22 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  console.log('📋 Invoices result:', {
+  console.log('📋 [OPEN INVOICES] Query result:', {
     count: data?.length,
     error: error?.message,
+    errorDetails: error,
     invoices: data?.map((i: any) => ({
       number: i.invoice_number,
       status: i.payment_status,
       total: i.total,
       paid: i.paid_amount,
+      org: i.organization_id,
       customer: i.customers?.name
     }))
   });
 
   if (error) {
-    console.error('Full error:', JSON.stringify(error, null, 2));
+    console.error('❌ [OPEN INVOICES] Error:', JSON.stringify(error, null, 2));
     return {
       unpaid: [],
       overdue: [],
@@ -432,7 +448,15 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   }
 
   if (!data || data.length === 0) {
-    console.log('⚠️ No open invoices found for organization:', auth.organizationId);
+    console.log('⚠️ [OPEN INVOICES] No results - checking why...');
+
+    const { count: totalCount } = await supabase
+      .from('invoices')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', auth.organizationId);
+
+    console.log('⚠️ [OPEN INVOICES] Total invoices for org:', totalCount);
+
     return {
       unpaid: [],
       overdue: [],
@@ -441,9 +465,10 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
     };
   }
 
+  const now = new Date();
   const unpaid = data?.filter((inv: any) => inv.payment_status === 'unpaid') || [];
   const overdue = unpaid.filter((inv: any) => {
-    const daysOld = Math.floor((Date.now() - new Date(inv.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    const daysOld = Math.floor((now.getTime() - new Date(inv.created_at).getTime()) / (1000 * 60 * 60 * 24));
     return daysOld > 7;
   });
 
@@ -451,7 +476,7 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
     return sum + (Number(inv.total) - Number(inv.paid_amount || 0));
   }, 0) || 0;
 
-  console.log('✅ Open invoices:', {
+  console.log('✅ [OPEN INVOICES] Success:', {
     unpaidCount: unpaid.length,
     overdueCount: overdue.length,
     totalAmount,
@@ -467,32 +492,55 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
 }
 
 async function getFinancialSummary(supabase: any, auth: AuthContext) {
-  console.log('💰 Fetching financial summary for org:', auth.organizationId);
+  console.log('💰 [FINANCIAL] Starting financial summary');
+  console.log('💰 [FINANCIAL] User org:', auth.organizationId);
 
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const startOfDay = today.toISOString();
   const startOfWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+  console.log('💰 [FINANCIAL] Date ranges:', {
+    now: now.toISOString(),
+    startOfDay,
+    startOfWeek,
+    startOfMonth
+  });
+
+  const { data: allInvoices, error: debugError } = await supabase
+    .from('invoices')
+    .select('invoice_number, payment_status, paid_amount, created_at, organization_id')
+    .eq('organization_id', auth.organizationId)
+    .is('deleted_at', null);
+
+  console.log('💰 [FINANCIAL] All invoices for org:', {
+    count: allInvoices?.length,
+    error: debugError?.message,
+    sample: allInvoices
+  });
 
   const { data: invoices, error: invError } = await supabase
     .from('invoices')
-    .select('paid_amount, created_at, payment_status')
+    .select('paid_amount, created_at, payment_status, invoice_number')
     .eq('organization_id', auth.organizationId)
     .gte('created_at', startOfMonth)
     .is('deleted_at', null);
 
-  console.log('📋 Invoices for financial:', {
+  console.log('📋 [FINANCIAL] Invoices since start of month:', {
     count: invoices?.length,
     error: invError?.message,
     invoices: invoices?.map((i: any) => ({
+      number: i.invoice_number,
       created: i.created_at,
       paid: i.paid_amount,
-      status: i.payment_status
+      status: i.payment_status,
+      isPaid: i.payment_status === 'paid'
     }))
   });
 
   if (invError) {
-    console.error('Full error:', JSON.stringify(invError, null, 2));
+    console.error('❌ [FINANCIAL] Error:', JSON.stringify(invError, null, 2));
     return {
       todayRevenue: 0,
       weekRevenue: 0,
@@ -502,26 +550,56 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     };
   }
 
-  const todayRevenue = invoices?.filter((inv: any) => inv.created_at >= startOfDay && inv.payment_status === 'paid')
+  const paidInvoices = invoices?.filter((inv: any) => inv.payment_status === 'paid') || [];
+
+  console.log('💰 [FINANCIAL] Paid invoices:', {
+    count: paidInvoices.length,
+    invoices: paidInvoices.map((i: any) => ({
+      number: i.invoice_number,
+      created: i.created_at,
+      amount: i.paid_amount
+    }))
+  });
+
+  const todayRevenue = paidInvoices
+    .filter((inv: any) => inv.created_at >= startOfDay)
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
-  const weekRevenue = invoices?.filter((inv: any) => inv.created_at >= startOfWeek && inv.payment_status === 'paid')
+  const weekRevenue = paidInvoices
+    .filter((inv: any) => inv.created_at >= startOfWeek)
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
-  const monthRevenue = invoices?.filter((inv: any) => inv.payment_status === 'paid')
+  const monthRevenue = paidInvoices
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
+
+  console.log('💰 [FINANCIAL] Revenue calculations:', {
+    todayRevenue,
+    weekRevenue,
+    monthRevenue,
+    todayCount: paidInvoices.filter((inv: any) => inv.created_at >= startOfDay).length,
+    weekCount: paidInvoices.filter((inv: any) => inv.created_at >= startOfWeek).length,
+    monthCount: paidInvoices.length
+  });
 
   const { data: expenses, error: expError } = await supabase
     .from('expenses')
-    .select('amount, expense_date')
+    .select('amount, expense_date, expense_number')
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfDay)
     .is('deleted_at', null);
 
-  console.log('💸 Expenses for today:', { count: expenses?.length, error: expError?.message });
+  console.log('💸 [FINANCIAL] Expenses for today:', {
+    count: expenses?.length,
+    error: expError?.message,
+    expenses: expenses?.map((e: any) => ({
+      number: e.expense_number,
+      date: e.expense_date,
+      amount: e.amount
+    }))
+  });
 
   if (expError) {
-    console.error('Full error:', JSON.stringify(expError, null, 2));
+    console.error('❌ [FINANCIAL] Expense error:', JSON.stringify(expError, null, 2));
   }
 
   const todayExpenses = expenses?.reduce((sum: number, exp: any) => sum + Number(exp.amount), 0) || 0;
@@ -534,7 +612,7 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     netProfit: Number((todayRevenue - todayExpenses).toFixed(2)),
   };
 
-  console.log('✅ Financial summary:', result);
+  console.log('✅ [FINANCIAL] Final result:', result);
 
   return result;
 }
