@@ -387,19 +387,6 @@ async function getOpenOrders(supabase: any, auth: AuthContext) {
 async function getOpenInvoices(supabase: any, auth: AuthContext) {
   console.log('🔍 [OPEN INVOICES] Starting query');
   console.log('🔍 [OPEN INVOICES] User org:', auth.organizationId);
-  console.log('🔍 [OPEN INVOICES] User ID:', auth.userId);
-
-  const { data: allInvoices, error: debugError } = await supabase
-    .from('invoices')
-    .select('invoice_number, payment_status, organization_id, deleted_at')
-    .eq('organization_id', auth.organizationId)
-    .limit(5);
-
-  console.log('🔍 [OPEN INVOICES] Debug - All invoices for org:', {
-    count: allInvoices?.length,
-    error: debugError?.message,
-    sample: allInvoices
-  });
 
   const { data, error } = await supabase
     .from('invoices')
@@ -418,21 +405,19 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
       )
     `)
     .eq('organization_id', auth.organizationId)
-    .in('payment_status', ['unpaid', 'partial'])
+    .eq('payment_status', 'unpaid')
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(10);
+    .order('created_at', { ascending: false });
 
   console.log('📋 [OPEN INVOICES] Query result:', {
     count: data?.length,
     error: error?.message,
-    errorDetails: error,
     invoices: data?.map((i: any) => ({
       number: i.invoice_number,
       status: i.payment_status,
       total: i.total,
       paid: i.paid_amount,
-      org: i.organization_id,
+      dueDate: i.due_date,
       customer: i.customers?.name
     }))
   });
@@ -448,15 +433,7 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   }
 
   if (!data || data.length === 0) {
-    console.log('⚠️ [OPEN INVOICES] No results - checking why...');
-
-    const { count: totalCount } = await supabase
-      .from('invoices')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', auth.organizationId);
-
-    console.log('⚠️ [OPEN INVOICES] Total invoices for org:', totalCount);
-
+    console.log('⚠️ [OPEN INVOICES] No unpaid invoices found');
     return {
       unpaid: [],
       overdue: [],
@@ -466,18 +443,16 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   }
 
   const now = new Date();
-  const unpaid = data?.filter((inv: any) => inv.payment_status === 'unpaid') || [];
+  const unpaid = data || [];
   const overdue = unpaid.filter((inv: any) => {
-    // Invoice is overdue if due_date has passed
     if (inv.due_date) {
       return new Date(inv.due_date) < now;
     }
-    // Fallback: if no due_date, consider overdue if older than 30 days
     const daysOld = Math.floor((now.getTime() - new Date(inv.created_at).getTime()) / (1000 * 60 * 60 * 24));
     return daysOld > 30;
   });
 
-  const totalAmount = data?.reduce((sum: number, inv: any) => {
+  const totalAmount = unpaid.reduce((sum: number, inv: any) => {
     return sum + (Number(inv.total) - Number(inv.paid_amount || 0));
   }, 0) || 0;
 
@@ -485,45 +460,29 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
     unpaidCount: unpaid.length,
     overdueCount: overdue.length,
     totalAmount,
-    totalCount: data.length
+    overdueInvoices: overdue.map((i: any) => ({
+      number: i.invoice_number,
+      dueDate: i.due_date,
+      amount: i.total
+    }))
   });
 
   return {
     unpaid: unpaid.slice(0, 5),
     overdue: overdue.slice(0, 5),
     totalAmount: Number(totalAmount.toFixed(2)),
-    totalCount: data?.length || 0,
+    totalCount: unpaid.length,
   };
 }
 
 async function getFinancialSummary(supabase: any, auth: AuthContext) {
   console.log('💰 [FINANCIAL] Starting financial summary');
-  console.log('💰 [FINANCIAL] User org:', auth.organizationId);
 
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const startOfDay = today.toISOString();
   const startOfWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-
-  console.log('💰 [FINANCIAL] Date ranges:', {
-    now: now.toISOString(),
-    startOfDay,
-    startOfWeek,
-    startOfMonth
-  });
-
-  const { data: allInvoices, error: debugError } = await supabase
-    .from('invoices')
-    .select('invoice_number, payment_status, paid_amount, created_at, organization_id')
-    .eq('organization_id', auth.organizationId)
-    .is('deleted_at', null);
-
-  console.log('💰 [FINANCIAL] All invoices for org:', {
-    count: allInvoices?.length,
-    error: debugError?.message,
-    sample: allInvoices
-  });
 
   const { data: invoices, error: invError } = await supabase
     .from('invoices')
@@ -539,8 +498,7 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     invoices: invoices?.map((i: any) => ({
       number: i.invoice_number,
       paidAt: i.paid_at,
-      amount: i.paid_amount,
-      status: i.payment_status
+      amount: i.paid_amount
     }))
   });
 
@@ -557,15 +515,6 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
 
   const paidInvoices = invoices || [];
 
-  console.log('💰 [FINANCIAL] Processing paid invoices:', {
-    count: paidInvoices.length,
-    invoices: paidInvoices.map((i: any) => ({
-      number: i.invoice_number,
-      paidAt: i.paid_at,
-      amount: i.paid_amount
-    }))
-  });
-
   const todayRevenue = paidInvoices
     .filter((inv: any) => inv.paid_at && inv.paid_at >= startOfDay)
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
@@ -577,31 +526,12 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
   const monthRevenue = paidInvoices
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
-  console.log('💰 [FINANCIAL] Revenue calculations:', {
-    todayRevenue,
-    weekRevenue,
-    monthRevenue,
-    todayCount: paidInvoices.filter((inv: any) => inv.paid_at && inv.paid_at >= startOfDay).length,
-    weekCount: paidInvoices.filter((inv: any) => inv.paid_at && inv.paid_at >= startOfWeek).length,
-    monthCount: paidInvoices.length
-  });
-
   const { data: expenses, error: expError } = await supabase
     .from('expenses')
-    .select('amount, expense_date, expense_number')
+    .select('amount, expense_date')
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfDay)
     .is('deleted_at', null);
-
-  console.log('💸 [FINANCIAL] Expenses for today:', {
-    count: expenses?.length,
-    error: expError?.message,
-    expenses: expenses?.map((e: any) => ({
-      number: e.expense_number,
-      date: e.expense_date,
-      amount: e.amount
-    }))
-  });
 
   if (expError) {
     console.error('❌ [FINANCIAL] Expense error:', JSON.stringify(expError, null, 2));
@@ -623,8 +553,6 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
 }
 
 async function getInventoryAlerts(supabase: any, auth: AuthContext) {
-  console.log('📦 Fetching inventory alerts for org:', auth.organizationId);
-
   const { data, error } = await supabase
     .from('spare_parts')
     .select('*')
@@ -633,10 +561,8 @@ async function getInventoryAlerts(supabase: any, auth: AuthContext) {
     .order('quantity', { ascending: true })
     .limit(20);
 
-  console.log('📦 Inventory query result:', { count: data?.length, error: error?.message });
-
   if (error) {
-    console.error('Full error:', JSON.stringify(error, null, 2));
+    console.error('Inventory error:', error);
     return {
       outOfStock: [],
       lowStock: [],
@@ -651,8 +577,6 @@ async function getInventoryAlerts(supabase: any, auth: AuthContext) {
     return qty > 0 && qty <= minQty;
   }) || [];
 
-  console.log('✅ Inventory alerts:', { outOfStock: outOfStock.length, lowStock: lowStock.length });
-
   return {
     outOfStock: outOfStock.slice(0, 5),
     lowStock: lowStock.slice(0, 5),
@@ -661,8 +585,6 @@ async function getInventoryAlerts(supabase: any, auth: AuthContext) {
 }
 
 async function getExpensesSummary(supabase: any, auth: AuthContext) {
-  console.log('💸 Fetching expenses summary for org:', auth.organizationId);
-
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
   const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
@@ -685,10 +607,8 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
     .order('due_date', { ascending: true })
     .limit(5);
 
-  console.log('💳 Installments result:', { count: installments?.length, error: instError?.message });
-
   if (instError) {
-    console.error('Full installments error:', JSON.stringify(instError, null, 2));
+    console.error('Installments error:', instError);
   }
 
   const { data: monthlyExpenses, error: monthError } = await supabase
@@ -698,10 +618,8 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
     .gte('expense_date', startOfMonth)
     .is('deleted_at', null);
 
-  console.log('💰 Monthly expenses result:', { count: monthlyExpenses?.length, error: monthError?.message });
-
   if (monthError) {
-    console.error('Full monthly expenses error:', JSON.stringify(monthError, null, 2));
+    console.error('Monthly expenses error:', monthError);
   }
 
   const byCategory: Record<string, number> = {};
@@ -713,8 +631,6 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
     monthlyTotal += Number(exp.amount);
   });
 
-  console.log('✅ Expenses summary:', { installmentsCount: installments?.length || 0, monthlyTotal });
-
   return {
     dueToday: installments || [],
     monthlyTotal: Number(monthlyTotal.toFixed(2)),
@@ -723,8 +639,6 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
 }
 
 async function getTechniciansPerformance(supabase: any, auth: AuthContext) {
-  console.log('👷 Fetching technicians for org:', auth.organizationId);
-
   const { data, error } = await supabase
     .from('technicians')
     .select('*')
@@ -734,10 +648,8 @@ async function getTechniciansPerformance(supabase: any, auth: AuthContext) {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  console.log('👷 Technicians result:', { count: data?.length, error: error?.message });
-
   if (error) {
-    console.error('Full error:', JSON.stringify(error, null, 2));
+    console.error('Technicians error:', error);
     return {
       activeTechnicians: 0,
       technicians: [],
