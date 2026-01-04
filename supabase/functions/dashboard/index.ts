@@ -245,7 +245,13 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
         result.sections.financialStats = res;
       }).catch(err => {
         console.error('❌ Financial stats error:', err);
-        result.sections.financialStats = null;
+        result.sections.financialStats = {
+          todayRevenue: 0,
+          weekRevenue: 0,
+          monthRevenue: 0,
+          todayExpenses: 0,
+          netProfit: 0,
+        };
       })
     );
   }
@@ -256,7 +262,11 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
         result.sections.openOrders = res;
       }).catch(err => {
         console.error('❌ Open orders error:', err);
-        result.sections.openOrders = null;
+        result.sections.openOrders = {
+          inProgress: [],
+          pending: [],
+          totalCount: 0,
+        };
       })
     );
   }
@@ -267,7 +277,12 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
         result.sections.openInvoices = res;
       }).catch(err => {
         console.error('❌ Open invoices error:', err);
-        result.sections.openInvoices = null;
+        result.sections.openInvoices = {
+          unpaid: [],
+          overdue: [],
+          totalAmount: 0,
+          totalCount: 0,
+        };
       })
     );
   }
@@ -278,7 +293,11 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
         result.sections.inventoryAlerts = res;
       }).catch(err => {
         console.error('❌ Inventory alerts error:', err);
-        result.sections.inventoryAlerts = null;
+        result.sections.inventoryAlerts = {
+          outOfStock: [],
+          lowStock: [],
+          totalLowStockItems: 0,
+        };
       })
     );
   }
@@ -289,7 +308,11 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
         result.sections.expenses = res;
       }).catch(err => {
         console.error('❌ Expenses error:', err);
-        result.sections.expenses = null;
+        result.sections.expenses = {
+          dueToday: [],
+          monthlyTotal: 0,
+          byCategory: {},
+        };
       })
     );
   }
@@ -300,7 +323,10 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
         result.sections.techniciansPerformance = res;
       }).catch(err => {
         console.error('❌ Technicians error:', err);
-        result.sections.techniciansPerformance = null;
+        result.sections.techniciansPerformance = {
+          activeTechnicians: 0,
+          technicians: [],
+        };
       })
     );
   }
@@ -339,7 +365,14 @@ async function getOpenOrders(supabase: any, auth: AuthContext) {
 
   console.log('📦 Work orders result:', { count: data?.length, error: error?.message });
 
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+  if (error) {
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    return {
+      inProgress: [],
+      pending: [],
+      totalCount: 0,
+    };
+  }
 
   const inProgress = data?.filter((wo: any) => wo.status === 'in_progress') || [];
   const pending = data?.filter((wo: any) => wo.status === 'pending') || [];
@@ -378,7 +411,15 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
 
   console.log('📋 Invoices result:', { count: data?.length, error: error?.message });
 
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+  if (error) {
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    return {
+      unpaid: [],
+      overdue: [],
+      totalAmount: 0,
+      totalCount: 0,
+    };
+  }
 
   const unpaid = data?.filter((inv: any) => inv.payment_status === 'unpaid') || [];
   const overdue = unpaid.filter((inv: any) => {
@@ -387,7 +428,7 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   });
 
   const totalAmount = data?.reduce((sum: number, inv: any) => {
-    return sum + (Number(inv.total) - Number(inv.paid_amount));
+    return sum + (Number(inv.total) - Number(inv.paid_amount || 0));
   }, 0) || 0;
 
   console.log('✅ Open invoices:', { unpaidCount: unpaid.length, totalAmount });
@@ -412,29 +453,42 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     .from('invoices')
     .select('paid_amount, created_at')
     .eq('organization_id', auth.organizationId)
-    .gte('created_at', startOfMonth);
+    .gte('created_at', startOfMonth)
+    .is('deleted_at', null);
 
   console.log('📋 Invoices for financial:', { count: invoices?.length, error: invError?.message });
 
-  if (invError) throw new ApiError(invError.message, "DATABASE_ERROR", 500);
+  if (invError) {
+    console.error('Full error:', JSON.stringify(invError, null, 2));
+    return {
+      todayRevenue: 0,
+      weekRevenue: 0,
+      monthRevenue: 0,
+      todayExpenses: 0,
+      netProfit: 0,
+    };
+  }
 
   const todayRevenue = invoices?.filter((inv: any) => inv.created_at >= startOfDay)
-    .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount), 0) || 0;
+    .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
   const weekRevenue = invoices?.filter((inv: any) => inv.created_at >= startOfWeek)
-    .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount), 0) || 0;
+    .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
-  const monthRevenue = invoices?.reduce((sum: number, inv: any) => sum + Number(inv.paid_amount), 0) || 0;
+  const monthRevenue = invoices?.reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
   const { data: expenses, error: expError } = await supabase
     .from('expenses')
     .select('amount, expense_date')
     .eq('organization_id', auth.organizationId)
-    .gte('expense_date', startOfDay);
+    .gte('expense_date', startOfDay)
+    .is('deleted_at', null);
 
   console.log('💸 Expenses for today:', { count: expenses?.length, error: expError?.message });
 
-  if (expError) throw new ApiError(expError.message, "DATABASE_ERROR", 500);
+  if (expError) {
+    console.error('Full error:', JSON.stringify(expError, null, 2));
+  }
 
   const todayExpenses = expenses?.reduce((sum: number, exp: any) => sum + Number(exp.amount), 0) || 0;
 
@@ -459,24 +513,33 @@ async function getInventoryAlerts(supabase: any, auth: AuthContext) {
     .select('*')
     .eq('organization_id', auth.organizationId)
     .is('deleted_at', null)
-    .or('quantity.eq.0,quantity.lte.minimum_quantity')
     .order('quantity', { ascending: true })
-    .limit(10);
+    .limit(20);
 
-  console.log('📦 Inventory result:', { count: data?.length, error: error?.message });
+  console.log('📦 Inventory query result:', { count: data?.length, error: error?.message });
 
   if (error) {
-    console.error('❌ Inventory error details:', error);
-    throw new ApiError(error.message, "DATABASE_ERROR", 500);
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    return {
+      outOfStock: [],
+      lowStock: [],
+      totalLowStockItems: 0,
+    };
   }
 
-  const outOfStock = data?.filter((part: any) => part.quantity === 0) || [];
-  const lowStock = data?.filter((part: any) => part.quantity > 0 && part.quantity <= part.minimum_quantity) || [];
+  const outOfStock = data?.filter((part: any) => Number(part.quantity) === 0) || [];
+  const lowStock = data?.filter((part: any) => {
+    const qty = Number(part.quantity);
+    const minQty = Number(part.minimum_quantity || 0);
+    return qty > 0 && qty <= minQty;
+  }) || [];
+
+  console.log('✅ Inventory alerts:', { outOfStock: outOfStock.length, lowStock: lowStock.length });
 
   return {
     outOfStock: outOfStock.slice(0, 5),
     lowStock: lowStock.slice(0, 5),
-    totalLowStockItems: data?.length || 0,
+    totalLowStockItems: outOfStock.length + lowStock.length,
   };
 }
 
@@ -508,19 +571,21 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
   console.log('💳 Installments result:', { count: installments?.length, error: instError?.message });
 
   if (instError) {
-    console.error('❌ Installments error details:', instError);
-    throw new ApiError(instError.message, "DATABASE_ERROR", 500);
+    console.error('Full installments error:', JSON.stringify(instError, null, 2));
   }
 
   const { data: monthlyExpenses, error: monthError } = await supabase
     .from('expenses')
     .select('category, amount')
     .eq('organization_id', auth.organizationId)
-    .gte('expense_date', startOfMonth);
+    .gte('expense_date', startOfMonth)
+    .is('deleted_at', null);
 
   console.log('💰 Monthly expenses result:', { count: monthlyExpenses?.length, error: monthError?.message });
 
-  if (monthError) throw new ApiError(monthError.message, "DATABASE_ERROR", 500);
+  if (monthError) {
+    console.error('Full monthly expenses error:', JSON.stringify(monthError, null, 2));
+  }
 
   const byCategory: Record<string, number> = {};
   let monthlyTotal = 0;
@@ -530,6 +595,8 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
     byCategory[category] = (byCategory[category] || 0) + Number(exp.amount);
     monthlyTotal += Number(exp.amount);
   });
+
+  console.log('✅ Expenses summary:', { installmentsCount: installments?.length || 0, monthlyTotal });
 
   return {
     dueToday: installments || [],
@@ -546,12 +613,19 @@ async function getTechniciansPerformance(supabase: any, auth: AuthContext) {
     .select('*')
     .eq('organization_id', auth.organizationId)
     .eq('is_active', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(10);
 
   console.log('👷 Technicians result:', { count: data?.length, error: error?.message });
 
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+  if (error) {
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    return {
+      activeTechnicians: 0,
+      technicians: [],
+    };
+  }
 
   return {
     activeTechnicians: data?.length || 0,
