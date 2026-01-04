@@ -10,33 +10,10 @@ import OpenInvoicesPanel from '../components/Dashboard/OpenInvoicesPanel';
 import InventoryAlertsPanel from '../components/Dashboard/InventoryAlertsPanel';
 import ExpensesSummaryPanel from '../components/Dashboard/ExpensesSummaryPanel';
 import TechniciansPerformancePanel from '../components/Dashboard/TechniciansPerformancePanel';
-
-interface Stats {
-  totalRevenue: number;
-  completedOrders: number;
-  activeCustomers: number;
-  activeTechnicians: number;
-}
-
-interface EnhancedDashboardData {
-  sections: {
-    financialStats?: any;
-    openOrders?: any;
-    openInvoices?: any;
-    inventoryAlerts?: any;
-    expenses?: any;
-    techniciansPerformance?: any;
-  };
-  permissions: {
-    financialStats: boolean;
-    openOrders: boolean;
-    openInvoices: boolean;
-    inventoryAlerts: boolean;
-    expenses: boolean;
-    techniciansPerformance: boolean;
-    activities: boolean;
-  };
-}
+import {
+  DashboardBasicStats,
+  EnhancedDashboardData,
+} from '../types/dashboard';
 
 interface DashboardProps {
   onNavigate?: (view: string, id?: string) => void;
@@ -45,7 +22,7 @@ interface DashboardProps {
 export function Dashboard({ onNavigate }: DashboardProps = {}) {
   const { t } = useTranslation();
   const { hasPermission, hasDetailedPermission } = useAuth();
-  const [stats, setStats] = useState<Stats>({
+  const [stats, setStats] = useState<DashboardBasicStats>({
     totalRevenue: 0,
     completedOrders: 0,
     activeCustomers: 0,
@@ -260,8 +237,8 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
           {showOpenInvoices && (
             <OpenInvoicesPanel
               data={enhancedData.sections.openInvoices || {
-                unpaid: [],
-                overdue: [],
+                unpaidInvoices: [],
+                overdueInvoices: [],
                 totalAmount: 0,
                 totalCount: 0,
               }}

@@ -1,34 +1,10 @@
 import { FileText, AlertCircle, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useFormatNumber } from '../../hooks/useFormatNumber';
-
-interface Invoice {
-  id: string;
-  invoice_number: string;
-  payment_status: string;
-  total: number;
-  paid_amount: number;
-  created_at: string;
-  customers: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  vehicles: {
-    id: string;
-    car_make: string;
-    car_model: string;
-    plate_number: string;
-  };
-}
+import { DashboardOpenInvoices } from '../../types/dashboard';
 
 interface OpenInvoicesPanelProps {
-  data: {
-    unpaidInvoices: Invoice[];
-    overdueInvoices: Invoice[];
-    totalAmount: number;
-    totalCount: number;
-  };
+  data: DashboardOpenInvoices;
   showAmounts?: boolean;
   onViewInvoice?: (invoiceId: string) => void;
   onViewAll?: () => void;

@@ -1,22 +1,9 @@
 import { Package, AlertTriangle, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-interface SparePart {
-  id: string;
-  part_number: string;
-  name: string;
-  category: string;
-  quantity: number;
-  minimum_quantity: number;
-  unit_price: number;
-}
+import { DashboardInventoryAlerts } from '../../types/dashboard';
 
 interface InventoryAlertsPanelProps {
-  data: {
-    outOfStock: SparePart[];
-    lowStock: SparePart[];
-    totalLowStockItems: number;
-  };
+  data: DashboardInventoryAlerts;
   onViewInventory?: () => void;
 }
 

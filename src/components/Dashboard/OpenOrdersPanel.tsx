@@ -1,32 +1,9 @@
 import { Wrench, Clock, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-interface WorkOrder {
-  id: string;
-  order_number: string;
-  status: string;
-  description: string;
-  total_labor_cost: number;
-  created_at: string;
-  customers: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  vehicles: {
-    id: string;
-    car_make: string;
-    car_model: string;
-    plate_number: string;
-  };
-}
+import { DashboardOpenOrders } from '../../types/dashboard';
 
 interface OpenOrdersPanelProps {
-  data: {
-    inProgress: WorkOrder[];
-    pending: WorkOrder[];
-    totalCount: number;
-  };
+  data: DashboardOpenOrders;
   onViewOrder?: (orderId: string) => void;
   onViewAll?: () => void;
 }

@@ -1,15 +1,10 @@
 import { DollarSign, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useFormatNumber } from '../../hooks/useFormatNumber';
+import { DashboardFinancialStats } from '../../types/dashboard';
 
 interface FinancialStatsCardProps {
-  data: {
-    todayRevenue: number;
-    weekRevenue: number;
-    monthRevenue: number;
-    todayExpenses: number;
-    netProfit: number;
-  };
+  data: DashboardFinancialStats;
 }
 
 export default function FinancialStatsCard({ data }: FinancialStatsCardProps) {

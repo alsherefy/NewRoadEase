@@ -1,26 +1,10 @@
 import { Receipt, Calendar, PieChart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useFormatNumber } from '../../hooks/useFormatNumber';
-
-interface ExpenseInstallment {
-  id: string;
-  installment_number: number;
-  amount: number;
-  due_date: string;
-  payment_status: string;
-  expenses: {
-    expense_number: string;
-    description: string;
-    category: string;
-  };
-}
+import { DashboardExpensesSummary } from '../../types/dashboard';
 
 interface ExpensesSummaryPanelProps {
-  data: {
-    dueToday: ExpenseInstallment[];
-    monthlyTotal: number;
-    byCategory: Record<string, number>;
-  };
+  data: DashboardExpensesSummary;
   onViewExpenses?: () => void;
 }
 

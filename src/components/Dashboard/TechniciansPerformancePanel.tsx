@@ -1,19 +1,9 @@
 import { Users, Award } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-interface Technician {
-  id: string;
-  name: string;
-  specialization: string;
-  contract_type: string;
-  is_active: boolean;
-}
+import { DashboardTechniciansPerformance } from '../../types/dashboard';
 
 interface TechniciansPerformancePanelProps {
-  data: {
-    activeTechnicians: number;
-    technicians: Technician[];
-  };
+  data: DashboardTechniciansPerformance;
   onViewTechnicians?: () => void;
 }
 
