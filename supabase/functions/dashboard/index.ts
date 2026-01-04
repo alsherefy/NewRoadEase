@@ -405,7 +405,7 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
       )
     `)
     .eq('organization_id', auth.organizationId)
-    .eq('payment_status', 'unpaid')
+    .neq('payment_status', 'paid')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
