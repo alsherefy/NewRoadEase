@@ -30,14 +30,15 @@ export default function ExpensesSummaryPanel({ data, onViewExpenses }: ExpensesS
 
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {
-      salaries: t('expenses.salaries'),
-      maintenance: t('expenses.maintenance'),
-      materials: t('expenses.materials'),
-      rent: t('expenses.rent'),
-      electricity: t('expenses.electricity'),
-      water: t('expenses.water'),
-      fuel: t('expenses.fuel'),
-      other: t('expenses.other'),
+      salaries: t('expenses.types.salaries'),
+      maintenance: t('expenses.types.maintenance'),
+      materials: t('expenses.types.materials'),
+      equipment: t('expenses.types.equipment'),
+      rent: t('expenses.types.rent'),
+      electricity: t('expenses.types.electricity'),
+      water: t('expenses.types.water'),
+      fuel: t('expenses.types.fuel'),
+      other: t('expenses.types.other'),
     };
     return labels[category] || category;
   };
