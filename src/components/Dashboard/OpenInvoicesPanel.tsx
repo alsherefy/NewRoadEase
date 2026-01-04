@@ -24,8 +24,8 @@ interface Invoice {
 
 interface OpenInvoicesPanelProps {
   data: {
-    unpaid: Invoice[];
-    overdue: Invoice[];
+    unpaidInvoices: Invoice[];
+    overdueInvoices: Invoice[];
     totalAmount: number;
     totalCount: number;
   };
@@ -87,13 +87,13 @@ export default function OpenInvoicesPanel({ data, showAmounts = true, onViewInvo
       </div>
 
       <div className="space-y-4">
-        {data.unpaid.length === 0 ? (
+        {data.unpaidInvoices.length === 0 ? (
           <p className="text-center text-gray-500 py-8">
             {t('dashboard.noOpenInvoices')}
           </p>
         ) : (
           <>
-            {data.unpaid.slice(0, 5).map((invoice) => (
+            {data.unpaidInvoices.slice(0, 5).map((invoice) => (
               <div
                 key={invoice.id}
                 onClick={() => onViewInvoice?.(invoice.id)}
