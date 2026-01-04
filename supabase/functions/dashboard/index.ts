@@ -468,8 +468,13 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   const now = new Date();
   const unpaid = data?.filter((inv: any) => inv.payment_status === 'unpaid') || [];
   const overdue = unpaid.filter((inv: any) => {
+    // Invoice is overdue if due_date has passed
+    if (inv.due_date) {
+      return new Date(inv.due_date) < now;
+    }
+    // Fallback: if no due_date, consider overdue if older than 30 days
     const daysOld = Math.floor((now.getTime() - new Date(inv.created_at).getTime()) / (1000 * 60 * 60 * 24));
-    return daysOld > 7;
+    return daysOld > 30;
   });
 
   const totalAmount = data?.reduce((sum: number, inv: any) => {
@@ -522,20 +527,20 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
 
   const { data: invoices, error: invError } = await supabase
     .from('invoices')
-    .select('paid_amount, created_at, payment_status, invoice_number')
+    .select('paid_amount, paid_at, payment_status, invoice_number')
     .eq('organization_id', auth.organizationId)
-    .gte('created_at', startOfMonth)
+    .eq('payment_status', 'paid')
+    .gte('paid_at', startOfMonth)
     .is('deleted_at', null);
 
-  console.log('📋 [FINANCIAL] Invoices since start of month:', {
+  console.log('📋 [FINANCIAL] Paid invoices since start of month:', {
     count: invoices?.length,
     error: invError?.message,
     invoices: invoices?.map((i: any) => ({
       number: i.invoice_number,
-      created: i.created_at,
-      paid: i.paid_amount,
-      status: i.payment_status,
-      isPaid: i.payment_status === 'paid'
+      paidAt: i.paid_at,
+      amount: i.paid_amount,
+      status: i.payment_status
     }))
   });
 
@@ -550,23 +555,23 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     };
   }
 
-  const paidInvoices = invoices?.filter((inv: any) => inv.payment_status === 'paid') || [];
+  const paidInvoices = invoices || [];
 
-  console.log('💰 [FINANCIAL] Paid invoices:', {
+  console.log('💰 [FINANCIAL] Processing paid invoices:', {
     count: paidInvoices.length,
     invoices: paidInvoices.map((i: any) => ({
       number: i.invoice_number,
-      created: i.created_at,
+      paidAt: i.paid_at,
       amount: i.paid_amount
     }))
   });
 
   const todayRevenue = paidInvoices
-    .filter((inv: any) => inv.created_at >= startOfDay)
+    .filter((inv: any) => inv.paid_at && inv.paid_at >= startOfDay)
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
   const weekRevenue = paidInvoices
-    .filter((inv: any) => inv.created_at >= startOfWeek)
+    .filter((inv: any) => inv.paid_at && inv.paid_at >= startOfWeek)
     .reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || 0), 0) || 0;
 
   const monthRevenue = paidInvoices
@@ -576,8 +581,8 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     todayRevenue,
     weekRevenue,
     monthRevenue,
-    todayCount: paidInvoices.filter((inv: any) => inv.created_at >= startOfDay).length,
-    weekCount: paidInvoices.filter((inv: any) => inv.created_at >= startOfWeek).length,
+    todayCount: paidInvoices.filter((inv: any) => inv.paid_at && inv.paid_at >= startOfDay).length,
+    weekCount: paidInvoices.filter((inv: any) => inv.paid_at && inv.paid_at >= startOfWeek).length,
     monthCount: paidInvoices.length
   });
 
