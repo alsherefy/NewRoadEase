@@ -64,14 +64,24 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
         dashboardService.getStats(),
         dashboardService.getEnhancedDashboard(),
       ]);
-      console.log('📊 Dashboard Basic Stats:', basicStats);
-      console.log('📊 Dashboard Enhanced Data:', enhanced);
-      console.log('📊 Open Invoices:', enhanced?.sections?.openInvoices);
-      console.log('📊 Financial Stats:', enhanced?.sections?.financialStats);
+
+      console.log('=== DASHBOARD DEBUG START ===');
+      console.log('1. Basic Stats:', JSON.stringify(basicStats, null, 2));
+      console.log('2. Enhanced Data:', JSON.stringify(enhanced, null, 2));
+      console.log('3. Open Invoices Section:', JSON.stringify(enhanced?.sections?.openInvoices, null, 2));
+      console.log('4. Financial Stats Section:', JSON.stringify(enhanced?.sections?.financialStats, null, 2));
+      console.log('5. Inventory Alerts:', JSON.stringify(enhanced?.sections?.inventoryAlerts, null, 2));
+      console.log('6. Expenses:', JSON.stringify(enhanced?.sections?.expenses, null, 2));
+      console.log('7. Permissions:', JSON.stringify(enhanced?.permissions, null, 2));
+      console.log('=== DASHBOARD DEBUG END ===');
+
       setStats(basicStats);
       setEnhancedData(enhanced);
     } catch (error) {
-      console.error('❌ Error loading dashboard:', error);
+      console.error('=== DASHBOARD ERROR ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('=== ERROR END ===');
     } finally {
       setLoading(false);
     }

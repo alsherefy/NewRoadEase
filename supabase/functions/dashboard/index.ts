@@ -18,6 +18,8 @@ Deno.serve(async (req: Request) => {
     const path = url.pathname.split('/').filter(Boolean);
     const supabase = getSupabaseClient();
 
+    console.log('🎯 Dashboard request:', { path, orgId: auth.organizationId });
+
     switch (req.method) {
       case "GET": {
         const endpoint = path[path.length - 1];
@@ -42,6 +44,7 @@ Deno.serve(async (req: Request) => {
         throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
   } catch (error) {
+    console.error('❌ Dashboard error:', error);
     return errorResponse(error);
   }
 });
@@ -71,6 +74,8 @@ async function getBasicStats(supabase: any, auth: any) {
 }
 
 async function getEnhancedDashboard(supabase: any, auth: any) {
+  console.log('📊 Starting enhanced dashboard fetch');
+  
   const result: any = {
     sections: {},
     permissions: {},
@@ -86,13 +91,16 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     activities: hasPermission(auth, 'dashboard.view_activities'),
   };
 
+  console.log('✅ User permissions:', result.permissions);
+
   const promises: Promise<void>[] = [];
 
   if (result.permissions.financialStats) {
     promises.push(
       getFinancialSummary(supabase, auth).then(res => {
         result.sections.financialStats = res;
-      }).catch(() => {
+      }).catch(err => {
+        console.error('❌ Financial stats error:', err);
         result.sections.financialStats = null;
       })
     );
@@ -102,7 +110,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getOpenOrders(supabase, auth).then(res => {
         result.sections.openOrders = res;
-      }).catch(() => {
+      }).catch(err => {
+        console.error('❌ Open orders error:', err);
         result.sections.openOrders = null;
       })
     );
@@ -112,7 +121,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getOpenInvoices(supabase, auth).then(res => {
         result.sections.openInvoices = res;
-      }).catch(() => {
+      }).catch(err => {
+        console.error('❌ Open invoices error:', err);
         result.sections.openInvoices = null;
       })
     );
@@ -122,7 +132,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getInventoryAlerts(supabase, auth).then(res => {
         result.sections.inventoryAlerts = res;
-      }).catch(() => {
+      }).catch(err => {
+        console.error('❌ Inventory alerts error:', err);
         result.sections.inventoryAlerts = null;
       })
     );
@@ -132,7 +143,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getExpensesSummary(supabase, auth).then(res => {
         result.sections.expenses = res;
-      }).catch(() => {
+      }).catch(err => {
+        console.error('❌ Expenses error:', err);
         result.sections.expenses = null;
       })
     );
@@ -142,7 +154,8 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
     promises.push(
       getTechniciansPerformance(supabase, auth).then(res => {
         result.sections.techniciansPerformance = res;
-      }).catch(() => {
+      }).catch(err => {
+        console.error('❌ Technicians error:', err);
         result.sections.techniciansPerformance = null;
       })
     );
@@ -150,10 +163,14 @@ async function getEnhancedDashboard(supabase: any, auth: any) {
 
   await Promise.all(promises);
 
+  console.log('✅ Enhanced dashboard complete:', Object.keys(result.sections));
+
   return successResponse(result);
 }
 
 async function getOpenOrders(supabase: any, auth: any) {
+  console.log('🔧 Fetching open orders for org:', auth.organizationId);
+
   const { data, error } = await supabase
     .from('work_orders')
     .select(`
@@ -179,6 +196,8 @@ async function getOpenOrders(supabase: any, auth: any) {
     .in('status', ['in_progress', 'pending'])
     .order('created_at', { ascending: false })
     .limit(10);
+
+  console.log('📦 Work orders result:', { count: data?.length, error: error?.message });
 
   if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
@@ -221,7 +240,7 @@ async function getOpenInvoices(supabase: any, auth: any) {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  console.log('📋 Invoices query result:', { data, error, count: data?.length });
+  console.log('📋 Invoices result:', { count: data?.length, error: error?.message });
 
   if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
@@ -235,7 +254,7 @@ async function getOpenInvoices(supabase: any, auth: any) {
     return sum + (Number(inv.total) - Number(inv.paid_amount));
   }, 0) || 0;
 
-  console.log('✅ Open invoices result:', { unpaidCount: unpaid.length, overdueCount: overdue.length, totalAmount });
+  console.log('✅ Open invoices:', { unpaidCount: unpaid.length, totalAmount });
 
   return {
     unpaid: unpaid.slice(0, 5),
@@ -253,15 +272,13 @@ async function getFinancialSummary(supabase: any, auth: any) {
   const startOfWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
-  console.log('📅 Date ranges:', { startOfDay, startOfWeek, startOfMonth });
-
   const { data: invoices, error: invError } = await supabase
     .from('invoices')
     .select('paid_amount, created_at')
     .eq('organization_id', auth.organizationId)
     .gte('created_at', startOfMonth);
 
-  console.log('📋 Invoices for financial summary:', { count: invoices?.length, error: invError });
+  console.log('📋 Invoices for financial:', { count: invoices?.length, error: invError?.message });
 
   if (invError) throw new ApiError(invError.message, "DATABASE_ERROR", 500);
 
@@ -279,7 +296,7 @@ async function getFinancialSummary(supabase: any, auth: any) {
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfDay);
 
-  console.log('💸 Expenses for today:', { count: expenses?.length, error: expError });
+  console.log('💸 Expenses for today:', { count: expenses?.length, error: expError?.message });
 
   if (expError) throw new ApiError(expError.message, "DATABASE_ERROR", 500);
 
@@ -293,12 +310,14 @@ async function getFinancialSummary(supabase: any, auth: any) {
     netProfit: Number((todayRevenue - todayExpenses).toFixed(2)),
   };
 
-  console.log('✅ Financial summary result:', result);
+  console.log('✅ Financial summary:', result);
 
   return result;
 }
 
 async function getInventoryAlerts(supabase: any, auth: any) {
+  console.log('📦 Fetching inventory alerts for org:', auth.organizationId);
+
   const { data, error } = await supabase
     .from('spare_parts')
     .select('*')
@@ -306,6 +325,8 @@ async function getInventoryAlerts(supabase: any, auth: any) {
     .or('quantity.eq.0,quantity.lte.minimum_quantity')
     .order('quantity', { ascending: true })
     .limit(10);
+
+  console.log('📦 Inventory result:', { count: data?.length, error: error?.message });
 
   if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
@@ -320,6 +341,8 @@ async function getInventoryAlerts(supabase: any, auth: any) {
 }
 
 async function getExpensesSummary(supabase: any, auth: any) {
+  console.log('💸 Fetching expenses summary for org:', auth.organizationId);
+
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
   const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
@@ -342,6 +365,8 @@ async function getExpensesSummary(supabase: any, auth: any) {
     .order('due_date', { ascending: true })
     .limit(5);
 
+  console.log('💳 Installments result:', { count: installments?.length, error: instError?.message });
+
   if (instError) throw new ApiError(instError.message, "DATABASE_ERROR", 500);
 
   const { data: monthlyExpenses, error: monthError } = await supabase
@@ -349,6 +374,8 @@ async function getExpensesSummary(supabase: any, auth: any) {
     .select('category, amount')
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfMonth);
+
+  console.log('💰 Monthly expenses result:', { count: monthlyExpenses?.length, error: monthError?.message });
 
   if (monthError) throw new ApiError(monthError.message, "DATABASE_ERROR", 500);
 
@@ -369,6 +396,8 @@ async function getExpensesSummary(supabase: any, auth: any) {
 }
 
 async function getTechniciansPerformance(supabase: any, auth: any) {
+  console.log('👷 Fetching technicians for org:', auth.organizationId);
+
   const { data, error } = await supabase
     .from('technicians')
     .select('*')
@@ -376,6 +405,8 @@ async function getTechniciansPerformance(supabase: any, auth: any) {
     .eq('is_active', true)
     .order('created_at', { ascending: false })
     .limit(10);
+
+  console.log('👷 Technicians result:', { count: data?.length, error: error?.message });
 
   if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
 
