@@ -174,18 +174,13 @@ async function getOpenOrders(supabase: any, auth: any) {
   const { data, error } = await supabase
     .from('work_orders')
     .select(`
-      id,
-      order_number,
-      status,
-      description,
-      total_labor_cost,
-      created_at,
-      customers:customer_id (
+      *,
+      customers!customer_id (
         id,
         name,
         phone
       ),
-      vehicles:vehicle_id (
+      vehicles!vehicle_id (
         id,
         car_make,
         car_model,
@@ -194,6 +189,7 @@ async function getOpenOrders(supabase: any, auth: any) {
     `)
     .eq('organization_id', auth.organizationId)
     .in('status', ['in_progress', 'pending'])
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(10);
 
@@ -217,18 +213,13 @@ async function getOpenInvoices(supabase: any, auth: any) {
   const { data, error } = await supabase
     .from('invoices')
     .select(`
-      id,
-      invoice_number,
-      payment_status,
-      total,
-      paid_amount,
-      created_at,
-      customers:customer_id (
+      *,
+      customers!customer_id (
         id,
         name,
         phone
       ),
-      vehicles:vehicle_id (
+      vehicles!vehicle_id (
         id,
         car_make,
         car_model,
@@ -237,6 +228,7 @@ async function getOpenInvoices(supabase: any, auth: any) {
     `)
     .eq('organization_id', auth.organizationId)
     .in('payment_status', ['unpaid', 'partial'])
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(10);
 
@@ -322,13 +314,17 @@ async function getInventoryAlerts(supabase: any, auth: any) {
     .from('spare_parts')
     .select('*')
     .eq('organization_id', auth.organizationId)
+    .is('deleted_at', null)
     .or('quantity.eq.0,quantity.lte.minimum_quantity')
     .order('quantity', { ascending: true })
     .limit(10);
 
   console.log('📦 Inventory result:', { count: data?.length, error: error?.message });
 
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+  if (error) {
+    console.error('❌ Inventory error details:', error);
+    throw new ApiError(error.message, "DATABASE_ERROR", 500);
+  }
 
   const outOfStock = data?.filter((part: any) => part.quantity === 0) || [];
   const lowStock = data?.filter((part: any) => part.quantity > 0 && part.quantity <= part.minimum_quantity) || [];
@@ -352,7 +348,7 @@ async function getExpensesSummary(supabase: any, auth: any) {
     .from('expense_installments')
     .select(`
       *,
-      expenses:expense_id (
+      expenses!expense_id (
         expense_number,
         description,
         category
@@ -367,7 +363,10 @@ async function getExpensesSummary(supabase: any, auth: any) {
 
   console.log('💳 Installments result:', { count: installments?.length, error: instError?.message });
 
-  if (instError) throw new ApiError(instError.message, "DATABASE_ERROR", 500);
+  if (instError) {
+    console.error('❌ Installments error details:', instError);
+    throw new ApiError(instError.message, "DATABASE_ERROR", 500);
+  }
 
   const { data: monthlyExpenses, error: monthError } = await supabase
     .from('expenses')
