@@ -278,8 +278,8 @@ async function getEnhancedDashboard(supabase: any, auth: AuthContext) {
       }).catch(err => {
         console.error('❌ Open invoices error:', err);
         result.sections.openInvoices = {
-          unpaid: [],
-          overdue: [],
+          unpaidInvoices: [],
+          overdueInvoices: [],
           totalAmount: 0,
           totalCount: 0,
         };
@@ -425,8 +425,8 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   if (error) {
     console.error('❌ [OPEN INVOICES] Error:', JSON.stringify(error, null, 2));
     return {
-      unpaid: [],
-      overdue: [],
+      unpaidInvoices: [],
+      overdueInvoices: [],
       totalAmount: 0,
       totalCount: 0,
     };
@@ -435,8 +435,8 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   if (!data || data.length === 0) {
     console.log('⚠️ [OPEN INVOICES] No unpaid invoices found');
     return {
-      unpaid: [],
-      overdue: [],
+      unpaidInvoices: [],
+      overdueInvoices: [],
       totalAmount: 0,
       totalCount: 0,
     };
@@ -468,8 +468,8 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   });
 
   return {
-    unpaid: unpaid.slice(0, 5),
-    overdue: overdue.slice(0, 5),
+    unpaidInvoices: unpaid.slice(0, 5),
+    overdueInvoices: overdue.slice(0, 5),
     totalAmount: Number(totalAmount.toFixed(2)),
     totalCount: unpaid.length,
   };
