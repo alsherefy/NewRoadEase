@@ -15,18 +15,30 @@ export interface DashboardFinancialStats {
   netProfit: number;
 }
 
-export interface DashboardWorkOrder extends WorkOrder {
-  customers: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  vehicles: {
-    id: string;
-    car_make: string;
-    car_model: string;
-    plate_number: string;
-  };
+export interface DashboardWorkOrder {
+  id: string;
+  order_number: string;
+  status: string;
+  priority?: string;
+  description?: string;
+  total_labor_cost: string;
+  created_at: string;
+  completed_at?: string;
+  updated_at: string;
+  organization_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  vehicle_id: string;
+  plate_number: string;
+  car_make: string;
+  car_model: string;
+  car_year: number;
+  technician_count: number;
+  total_spare_parts_cost: string;
+  total_cost: string;
+  invoice_payment_status?: string;
 }
 
 export interface DashboardOpenOrders {
@@ -35,18 +47,41 @@ export interface DashboardOpenOrders {
   totalCount: number;
 }
 
-export interface DashboardInvoice extends Invoice {
-  customers: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  vehicles: {
-    id: string;
-    car_make: string;
-    car_model: string;
-    plate_number: string;
-  };
+export interface DashboardInvoice {
+  id: string;
+  invoice_number: string;
+  work_order_id: string;
+  payment_status: string;
+  payment_method?: string;
+  card_type?: string;
+  subtotal: string;
+  discount_percentage: string;
+  discount_amount: string;
+  tax_type: string;
+  tax_rate: string;
+  tax_amount: string;
+  total: string;
+  paid_amount: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  organization_id: string;
+  paid_at?: string;
+  due_date?: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  vehicle_id: string;
+  plate_number: string;
+  car_make: string;
+  car_model: string;
+  car_year: number;
+  work_order_number: string;
+  work_order_status: string;
+  work_order_description?: string;
+  remaining_amount: string;
+  items_count: number;
 }
 
 export interface DashboardOpenInvoices {

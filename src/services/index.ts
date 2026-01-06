@@ -484,9 +484,9 @@ class DashboardService {
     if (error) throw new ApiError(error.message, 500);
 
     return {
-      totalRevenue: hasFinancialStats ? (data?.total_revenue || 0) : 0,
-      completedOrders: data?.completed_orders || 0,
-      activeCustomers: data?.active_customers || 0,
+      totalRevenue: hasFinancialStats ? parseFloat(data?.total_revenue || '0') : 0,
+      completedOrders: data?.completed_work_orders || 0,
+      activeCustomers: data?.total_customers || 0,
       activeTechnicians: data?.active_technicians || 0,
     };
   }

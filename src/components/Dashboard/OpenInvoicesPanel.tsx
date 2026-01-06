@@ -93,7 +93,7 @@ export default function OpenInvoicesPanel({ data, showAmounts = true, onViewInvo
                       )}
                     </div>
                     <p className="text-sm text-gray-600">
-                      {invoice.customers.name}
+                      {invoice.customer_name}
                     </p>
                   </div>
                   <ArrowRight className="w-5 h-5 text-gray-400" />
@@ -101,7 +101,7 @@ export default function OpenInvoicesPanel({ data, showAmounts = true, onViewInvo
                 {showAmounts && (
                   <p className="text-sm font-medium text-gray-900 mt-2">
                     {t('dashboard.due')}:{' '}
-                    {formatCurrency(invoice.total - invoice.paid_amount)}
+                    {formatCurrency(parseFloat(invoice.total) - parseFloat(invoice.paid_amount))}
                   </p>
                 )}
                 <p className="text-xs text-gray-500 mt-1">

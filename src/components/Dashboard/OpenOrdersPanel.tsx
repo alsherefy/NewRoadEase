@@ -73,10 +73,10 @@ export default function OpenOrdersPanel({ data, onViewOrder, onViewAll }: OpenOr
                       {getStatusLabel(order.status)}
                     </span>
                     <span className="text-sm text-gray-600 truncate">
-                      {order.customers.name}
+                      {order.customer_name}
                     </span>
                     <span className="text-sm text-gray-500 truncate hidden lg:block">
-                      {order.vehicles.car_make} {order.vehicles.car_model}
+                      {order.car_make} {order.car_model}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500 whitespace-nowrap">
