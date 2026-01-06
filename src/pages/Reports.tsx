@@ -20,8 +20,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Search,
-  X,
 } from 'lucide-react';
 
 interface TechnicianReport {
@@ -75,7 +73,7 @@ export function Reports() {
 
   useEffect(() => {
     loadAllReports();
-  }, []);
+  }, [startDate, endDate]);
 
   async function loadAllReports() {
     setLoading(true);
@@ -113,11 +111,6 @@ export function Reports() {
       console.error('Error loading reports:', error);
     }
   }
-
-  const handleClearFilters = () => {
-    setStartDate('');
-    setEndDate('');
-  };
 
   const handlePrint = () => {
     window.print();
@@ -179,7 +172,7 @@ export function Reports() {
 
       <div className="bg-white rounded-xl shadow-md p-6 print:shadow-none print:p-4">
         <h3 className="text-xl font-bold text-gray-800 mb-4">{t('reports.select_period')}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="h-4 w-4 inline ml-2" />
@@ -203,26 +196,6 @@ export function Reports() {
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-          </div>
-          <div className="flex items-end gap-2">
-            <button
-              onClick={loadAllReports}
-              disabled={loading}
-              className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Search className="h-5 w-5" />
-              {loading ? t('common.loading') : t('common.search')}
-            </button>
-            {(startDate || endDate) && (
-              <button
-                onClick={handleClearFilters}
-                disabled={loading}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                title={t('common.clear')}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            )}
           </div>
         </div>
       </div>
