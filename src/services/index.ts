@@ -477,8 +477,7 @@ class DashboardService {
     const hasFinancialStats = isAdmin || computedPermissions.includes('dashboard.view_financial_stats');
 
     const { data, error } = await supabase
-      .from('dashboard_stats_cache')
-      .select('*')
+      .rpc('get_dashboard_stats')
       .maybeSingle();
 
     if (error) throw new ApiError(error.message, 500);
@@ -545,30 +544,30 @@ class DashboardService {
     const [todayRev, weekRev, monthRev, todayExp] = await Promise.all([
       supabase
         .from('invoices')
-        .select('total_amount')
+        .select('total')
         .eq('payment_status', 'paid')
         .gte('paid_at', today)
-        .then(r => r.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0),
+        .then(r => r.data?.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0) || 0),
 
       supabase
         .from('invoices')
-        .select('total_amount')
+        .select('total')
         .eq('payment_status', 'paid')
         .gte('paid_at', weekStart)
-        .then(r => r.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0),
+        .then(r => r.data?.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0) || 0),
 
       supabase
         .from('invoices')
-        .select('total_amount')
+        .select('total')
         .eq('payment_status', 'paid')
         .gte('paid_at', monthStart)
-        .then(r => r.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0),
+        .then(r => r.data?.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0) || 0),
 
       supabase
         .from('expenses')
         .select('amount')
-        .gte('date', today)
-        .then(r => r.data?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0),
+        .gte('created_at', today)
+        .then(r => r.data?.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0) || 0),
     ]);
 
     return {
@@ -630,10 +629,10 @@ class DashboardService {
     if (includeAmounts) {
       const { data: allUnpaid, count } = await supabase
         .from('invoices')
-        .select('total_amount', { count: 'exact' })
+        .select('total', { count: 'exact' })
         .eq('payment_status', 'unpaid');
 
-      totalAmount = allUnpaid?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+      totalAmount = allUnpaid?.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0) || 0;
       totalCount = count || 0;
     }
 
@@ -652,23 +651,28 @@ class DashboardService {
       .eq('quantity', 0)
       .order('name', { ascending: true });
 
-    const { data: lowStock } = await supabase
+    const { data: allParts } = await supabase
       .from('spare_parts')
       .select('*')
-      .gt('quantity', 0)
-      .filter('quantity', 'lt', 'minimum_quantity')
-      .order('quantity', { ascending: true })
-      .limit(10);
+      .gt('quantity', 0);
 
-    const { count } = await supabase
+    const lowStock = (allParts || [])
+      .filter(part => part.quantity < part.minimum_quantity)
+      .sort((a, b) => a.quantity - b.quantity)
+      .slice(0, 10);
+
+    const { data: allLowStock } = await supabase
       .from('spare_parts')
-      .select('*', { count: 'exact', head: true })
-      .filter('quantity', 'lte', 'minimum_quantity');
+      .select('*');
+
+    const totalLowStockItems = (allLowStock || []).filter(
+      part => part.quantity <= part.minimum_quantity
+    ).length;
 
     return {
       outOfStock: outOfStock || [],
       lowStock: lowStock || [],
-      totalLowStockItems: count || 0,
+      totalLowStockItems,
     };
   }
 
@@ -688,7 +692,7 @@ class DashboardService {
           category
         )
       `)
-      .eq('payment_status', 'pending')
+      .eq('status', 'pending')
       .lte('due_date', today)
       .order('due_date', { ascending: true })
       .limit(5);
@@ -696,14 +700,14 @@ class DashboardService {
     const { data: monthlyExpenses } = await supabase
       .from('expenses')
       .select('amount, category')
-      .gte('date', monthStart);
+      .gte('created_at', monthStart);
 
-    const monthlyTotal = monthlyExpenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+    const monthlyTotal = monthlyExpenses?.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0) || 0;
     const byCategory: Record<string, number> = {};
 
     monthlyExpenses?.forEach(exp => {
       if (exp.category) {
-        byCategory[exp.category] = (byCategory[exp.category] || 0) + (exp.amount || 0);
+        byCategory[exp.category] = (byCategory[exp.category] || 0) + (parseFloat(exp.amount) || 0);
       }
     });
 
