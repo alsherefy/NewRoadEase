@@ -29,8 +29,17 @@ Deno.serve(async (req: Request) => {
 
     switch (reportType) {
       case "overview": {
-        let workOrdersQuery = supabase.from("work_orders").select("*").eq("organization_id", auth.organizationId);
-        let invoicesQuery = supabase.from("invoices").select("*").eq("organization_id", auth.organizationId);
+        let workOrdersQuery = supabase
+          .from("work_orders")
+          .select("id, status, created_at", { count: "exact" })
+          .eq("organization_id", auth.organizationId)
+          .limit(5000);
+
+        let invoicesQuery = supabase
+          .from("invoices")
+          .select("id, total, payment_status, created_at", { count: "exact" })
+          .eq("organization_id", auth.organizationId)
+          .limit(5000);
 
         if (startDate) {
           workOrdersQuery = workOrdersQuery.gte("created_at", startDate);
@@ -41,17 +50,23 @@ Deno.serve(async (req: Request) => {
           invoicesQuery = invoicesQuery.lte("created_at", endDate);
         }
 
-        const [workOrdersResult, invoicesResult, sparePartsResult, allSparePartsResult] = await Promise.all([
+        const [workOrdersResult, invoicesResult, sparePartsResult, lowStockCount] = await Promise.all([
           workOrdersQuery,
           invoicesQuery,
-          supabase.from("work_order_spare_parts").select("quantity, unit_price"),
-          supabase.from("spare_parts").select("*").eq("organization_id", auth.organizationId),
+          supabase
+            .from("work_order_spare_parts")
+            .select("quantity, unit_price")
+            .limit(5000),
+          supabase
+            .from("spare_parts")
+            .select("id", { count: "exact" })
+            .eq("organization_id", auth.organizationId)
+            .lte("quantity", "minimum_quantity"),
         ]);
 
         const workOrders = workOrdersResult.data || [];
         const invoices = invoicesResult.data || [];
         const sparePartsSold = sparePartsResult.data || [];
-        const allSpareParts = allSparePartsResult.data || [];
 
         const completedOrders = workOrders.filter((wo: any) => wo.status === "completed").length;
         const pendingOrders = workOrders.filter((wo: any) => wo.status === "pending").length;
@@ -63,7 +78,6 @@ Deno.serve(async (req: Request) => {
         const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
         const sparePartsRevenue = sparePartsSold.reduce((sum: number, sp: any) => sum + (sp.quantity * sp.unit_price), 0);
         const totalSparePartsSold = sparePartsSold.reduce((sum: number, sp: any) => sum + sp.quantity, 0);
-        const lowStockItems = allSpareParts.filter((sp: any) => sp.quantity <= sp.minimum_quantity).length;
 
         return successResponse({
           totalRevenue,
@@ -76,21 +90,42 @@ Deno.serve(async (req: Request) => {
           unpaidInvoices,
           totalSparePartsSold,
           sparePartsRevenue,
-          lowStockItems,
+          lowStockItems: lowStockCount.count || 0,
         });
       }
 
       case "inventory": {
-        const { data: spareParts, error } = await supabase.from("spare_parts").select("*").eq("organization_id", auth.organizationId);
-        if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+        const [totalCountResult, totalValueResult, lowStockResult] = await Promise.all([
+          supabase
+            .from("spare_parts")
+            .select("id", { count: "exact" })
+            .eq("organization_id", auth.organizationId),
+          supabase
+            .from("spare_parts")
+            .select("quantity, unit_price")
+            .eq("organization_id", auth.organizationId)
+            .limit(5000),
+          supabase
+            .from("spare_parts")
+            .select("name, quantity, minimum_quantity")
+            .eq("organization_id", auth.organizationId)
+            .lte("quantity", "minimum_quantity")
+            .limit(100),
+        ]);
 
-        const totalValue = (spareParts || []).reduce((sum: number, sp: any) => sum + (sp.quantity * Number(sp.unit_price)), 0);
-        const lowStockItems = (spareParts || []).filter((sp: any) => sp.quantity <= sp.minimum_quantity);
+        if (totalCountResult.error) throw new ApiError(totalCountResult.error.message, "DATABASE_ERROR", 500);
+        if (totalValueResult.error) throw new ApiError(totalValueResult.error.message, "DATABASE_ERROR", 500);
+        if (lowStockResult.error) throw new ApiError(lowStockResult.error.message, "DATABASE_ERROR", 500);
+
+        const totalValue = (totalValueResult.data || []).reduce(
+          (sum: number, sp: any) => sum + (sp.quantity * Number(sp.unit_price)),
+          0
+        );
 
         return successResponse({
-          totalItems: (spareParts || []).length,
+          totalItems: totalCountResult.count || 0,
           totalValue,
-          lowStockItems: lowStockItems.map((item: any) => ({
+          lowStockItems: (lowStockResult.data || []).map((item: any) => ({
             name: item.name,
             quantity: item.quantity,
             minimum_quantity: item.minimum_quantity,
@@ -101,61 +136,73 @@ Deno.serve(async (req: Request) => {
       case "technicians": {
         const { data: technicians, error: techError } = await supabase
           .from("technicians")
-          .select("*")
+          .select("id, name, specialization, phone, contract_type, percentage, fixed_salary, base_salary")
           .eq("is_active", true)
-          .eq("organization_id", auth.organizationId);
+          .eq("organization_id", auth.organizationId)
+          .limit(100);
 
         if (techError) throw new ApiError(techError.message, "DATABASE_ERROR", 500);
 
-        const reports = [];
+        let assignmentsQuery = supabase
+          .from("technician_assignments")
+          .select(`
+            technician_id,
+            share_amount,
+            service:work_order_services!inner(
+              service_type,
+              description,
+              work_order:work_orders!inner(status, created_at)
+            )
+          `)
+          .in("technician_id", (technicians || []).map((t: any) => t.id))
+          .eq("service.work_order.status", "completed")
+          .limit(5000);
 
-        for (const technician of technicians || []) {
-          let query = supabase
-            .from("technician_assignments")
-            .select(`
-              *,
-              service:work_order_services!inner(
-                *,
-                work_order:work_orders!inner(status, created_at)
-              )
-            `)
-            .eq("technician_id", technician.id)
-            .eq("service.work_order.status", "completed");
+        if (startDate) {
+          assignmentsQuery = assignmentsQuery.gte("service.work_order.created_at", startDate);
+        }
+        if (endDate) {
+          assignmentsQuery = assignmentsQuery.lte("service.work_order.created_at", endDate);
+        }
 
-          if (startDate) {
-            query = query.gte("service.work_order.created_at", startDate);
+        const { data: allAssignments, error: assignmentsError } = await assignmentsQuery;
+        if (assignmentsError) throw new ApiError(assignmentsError.message, "DATABASE_ERROR", 500);
+
+        const assignmentsByTech = new Map();
+        for (const assignment of allAssignments || []) {
+          if (!assignmentsByTech.has(assignment.technician_id)) {
+            assignmentsByTech.set(assignment.technician_id, []);
           }
-          if (endDate) {
-            query = query.lte("service.work_order.created_at", endDate);
-          }
+          assignmentsByTech.get(assignment.technician_id).push(assignment);
+        }
 
-          const { data: assignments } = await query;
-
-          const totalRevenue = (assignments || []).reduce((sum: number, a: any) => sum + (a.share_amount || 0), 0);
-          const jobsCompleted = (assignments || []).length;
+        const reports = (technicians || []).map((technician: any) => {
+          const assignments = assignmentsByTech.get(technician.id) || [];
+          const totalRevenue = assignments.reduce((sum: number, a: any) => sum + (a.share_amount || 0), 0);
+          const jobsCompleted = assignments.length;
           const averageJobValue = jobsCompleted > 0 ? totalRevenue / jobsCompleted : 0;
 
           let totalEarnings = 0;
           if (technician.contract_type === "percentage") {
             totalEarnings = (totalRevenue * technician.percentage) / 100;
           } else {
-            totalEarnings = technician.fixed_salary;
+            totalEarnings = technician.fixed_salary || technician.base_salary || 0;
           }
 
-          reports.push({
+          return {
             technician,
             totalRevenue,
             totalEarnings,
             jobsCompleted,
             averageJobValue,
-            jobs: (assignments || []).map((a: any) => ({
+            jobs: assignments.map((a: any) => ({
               service_type: a.service?.service_type || "",
               description: a.service?.description || "",
               share_amount: a.share_amount,
               created_at: a.service?.work_order?.created_at || "",
             })),
-          });
-        }
+          };
+        });
 
         return successResponse(reports.sort((a, b) => b.totalRevenue - a.totalRevenue));
       }
