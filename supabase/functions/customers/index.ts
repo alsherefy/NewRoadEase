@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
         if (customerId) {
           const { data, error } = await supabase
             .from('customers')
-            .select('*')
+            .select('id, name, phone, email, address, created_at, updated_at')
             .eq('id', customerId)
             .eq('organization_id', auth.organizationId)
             .maybeSingle();
@@ -62,12 +62,12 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const limit = parseInt(url.searchParams.get('limit') || '50');
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
         const offset = parseInt(url.searchParams.get('offset') || '0');
 
         const { data, error, count } = await supabase
           .from('customers')
-          .select('*', { count: 'exact' })
+          .select('id, name, phone, email, address, created_at', { count: 'exact' })
           .eq('organization_id', auth.organizationId)
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1);
@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
         return successResponse({
           data: data || [],
-          count: count || 0,
+          total: count || 0,
           hasMore: offset + limit < (count || 0),
         });
       }

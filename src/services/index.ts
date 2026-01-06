@@ -15,7 +15,8 @@ export interface QueryOptions {
 
 export interface PaginatedResponse<T> {
   data: T[];
-  count: number;
+  total: number;
+  count?: number;
   hasMore: boolean;
 }
 
@@ -29,12 +30,13 @@ class WorkOrdersService {
     return result.data;
   }
 
-  async getPaginatedWorkOrders(options: QueryOptions): Promise<PaginatedResponse<WorkOrder>> {
+  async getPaginatedWorkOrders(options: QueryOptions & { status?: string }): Promise<PaginatedResponse<WorkOrder>> {
     const params: Record<string, string> = {};
     if (options.limit) params.limit = String(options.limit);
     if (options.offset) params.offset = String(options.offset);
     if (options.orderBy) params.orderBy = options.orderBy;
     if (options.orderDirection) params.orderDir = options.orderDirection;
+    if (options.status) params.status = options.status;
 
     return apiClient.get<PaginatedResponse<WorkOrder>>('work-orders', params);
   }

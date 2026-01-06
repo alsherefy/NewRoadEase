@@ -4,6 +4,8 @@ import { FileText, Plus, Eye, Search, CheckCircle, XCircle, Clock, CreditCard, B
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import { formatToFixed } from '../utils/numberUtils';
 import { invoicesService } from '../services';
 
@@ -46,9 +48,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 50;
+  const pagination = usePagination(20);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; invoiceId: string; invoiceNumber: string }>({
     isOpen: false,
     invoiceId: '',
@@ -57,7 +57,7 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [pagination.state.currentPage]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -67,35 +67,31 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const fetchInvoices = async (resetPage = false) => {
+  useEffect(() => {
+    pagination.reset();
+    fetchInvoices();
+  }, [filterStatus]);
+
+  const fetchInvoices = async () => {
+    setLoading(true);
     try {
-      const currentPage = resetPage ? 0 : page;
+      const { from, to } = pagination.getRange();
       const result = await invoicesService.getPaginatedInvoices({
-        limit: PAGE_SIZE,
-        offset: currentPage * PAGE_SIZE,
+        limit: pagination.state.pageSize,
+        offset: from,
         orderBy: 'created_at',
         orderDirection: 'desc'
       });
 
-      if (resetPage) {
-        setInvoices(result.data);
-        setPage(0);
-      } else {
-        setInvoices(prev => currentPage === 0 ? result.data : [...prev, ...result.data]);
-      }
-
-      setHasMore(result.hasMore);
+      setInvoices(result.data);
+      pagination.setTotalItems(result.total || result.count || 0);
     } catch (error) {
       console.error('Error fetching invoices:', error);
+      pagination.setTotalItems(0);
     } finally {
       setLoading(false);
     }
   };
-
-  async function loadMore() {
-    setPage(prev => prev + 1);
-    await fetchInvoices();
-  }
 
   const handleDeleteClick = (id: string, invoiceNumber: string) => {
     if (!isCustomerServiceOrAdmin()) {
@@ -114,7 +110,8 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
     try {
       await invoicesService.deleteInvoice(deleteConfirm.invoiceId);
       toast.success(t('invoices.success_deleted'));
-      await fetchInvoices(true);
+      pagination.reset();
+      await fetchInvoices();
     } catch (error) {
       console.error('Error deleting invoice:', error);
       toast.error(t('invoices.error_delete'));
@@ -541,15 +538,16 @@ export function Invoices({ onNewInvoice, onViewInvoice, onEditInvoice }: Invoice
         )}
       </div>
 
-      {hasMore && filteredInvoices.length > 0 && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={loadMore}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md font-medium min-h-[44px]"
-          >
-            {t('common.load_more')}
-          </button>
-        </div>
+      {filteredInvoices.length > 0 && (
+        <Pagination
+          currentPage={pagination.state.currentPage}
+          totalPages={pagination.state.totalPages}
+          totalItems={pagination.state.totalItems}
+          pageSize={pagination.state.pageSize}
+          onPageChange={pagination.goToPage}
+          onNextPage={pagination.nextPage}
+          onPrevPage={pagination.prevPage}
+        />
       )}
 
       <ConfirmDialog

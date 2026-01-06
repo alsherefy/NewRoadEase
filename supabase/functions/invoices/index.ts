@@ -183,7 +183,7 @@ Deno.serve(async (req: Request) => {
 
         return successResponse({
           data: results,
-          count: count || 0,
+          total: count || 0,
           hasMore: offset + limit < (count || 0),
         });
       }

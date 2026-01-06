@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { User, UserPermission, PermissionKey, UserRole, DetailedPermissionKey } from '../types';
+import { permissionCacheUtils } from '../utils/permissionCache';
 
 interface AuthContextType {
   user: User | null;
@@ -59,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadUserData(userId: string) {
     try {
+      const cachedPerms = permissionCacheUtils.get(userId);
+      if (cachedPerms) {
+        setComputedPermissions(cachedPerms);
+      }
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -78,7 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserRoles(rolesResult.data || []);
 
         if (permsResult.data) {
-          setComputedPermissions(permsResult.data.map((p: { permission_key: string }) => p.permission_key));
+          const permissionKeys = permsResult.data.map((p: { permission_key: string }) => p.permission_key);
+          setComputedPermissions(permissionKeys);
+          permissionCacheUtils.set(userId, permissionKeys);
         }
       }
     } catch (error) {
@@ -115,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    permissionCacheUtils.clear();
     setUser(null);
     setSupabaseUser(null);
     setPermissions([]);

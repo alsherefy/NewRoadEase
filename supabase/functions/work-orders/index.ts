@@ -53,9 +53,15 @@ Deno.serve(async (req: Request) => {
           const { data, error } = await supabase
             .from('work_orders')
             .select(`
-              *,
-              customer:customers(*),
-              vehicle:vehicles(*)
+              id,
+              order_number,
+              status,
+              total_labor_cost,
+              total_parts_cost,
+              created_at,
+              updated_at,
+              customer:customers(id, name, phone, email),
+              vehicle:vehicles(id, car_make, car_model, car_year, plate_number)
             `)
             .eq('id', workOrderId)
             .eq('organization_id', auth.organizationId)
@@ -66,19 +72,30 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const limit = parseInt(url.searchParams.get('limit') || '50');
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
         const offset = parseInt(url.searchParams.get('offset') || '0');
         const orderBy = url.searchParams.get('orderBy') || 'created_at';
         const orderDir = url.searchParams.get('orderDir') || 'desc';
+        const status = url.searchParams.get('status');
 
-        const { data, error, count } = await supabase
+        let query = supabase
           .from('work_orders')
           .select(`
-            *,
+            id,
+            order_number,
+            status,
+            total_labor_cost,
+            created_at,
             customer:customers(id, name, phone),
-            vehicle:vehicles(id, car_make, car_model, car_year, plate_number)
+            vehicle:vehicles(id, car_make, car_model, plate_number)
           `, { count: 'exact' })
-          .eq('organization_id', auth.organizationId)
+          .eq('organization_id', auth.organizationId);
+
+        if (status) {
+          query = query.eq('status', status);
+        }
+
+        const { data, error, count } = await query
           .order(orderBy, { ascending: orderDir === 'asc' })
           .range(offset, offset + limit - 1);
 
@@ -86,7 +103,7 @@ Deno.serve(async (req: Request) => {
 
         return successResponse({
           data: data || [],
-          count: count || 0,
+          total: count || 0,
           hasMore: (count || 0) > offset + limit
         });
       }

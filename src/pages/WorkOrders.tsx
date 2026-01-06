@@ -4,6 +4,8 @@ import { Plus, Eye, Calendar, Car, User, DollarSign, Edit, Trash2, ShieldAlert }
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import { useTranslation } from 'react-i18next';
 import { displayNumber } from '../utils/numberUtils';
 import { workOrdersService } from '../services';
@@ -21,9 +23,7 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 50;
+  const pagination = usePagination(20);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; orderId: string; orderNumber: string }>({
     isOpen: false,
     orderId: '',
@@ -32,38 +32,34 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [pagination.state.currentPage]);
 
-  async function loadOrders(resetPage = false, pageToLoad?: number) {
+  useEffect(() => {
+    pagination.reset();
+    loadOrders();
+  }, [filter]);
+
+  async function loadOrders() {
+    setLoading(true);
     try {
-      const currentPage = resetPage ? 0 : (pageToLoad ?? page);
+      const { from, to } = pagination.getRange();
       const result = await workOrdersService.getPaginatedWorkOrders({
-        limit: PAGE_SIZE,
-        offset: currentPage * PAGE_SIZE,
+        limit: pagination.state.pageSize,
+        offset: from,
         orderBy: 'created_at',
-        orderDirection: 'desc'
+        orderDirection: 'desc',
+        status: filter === 'all' ? undefined : filter
       });
 
-      if (resetPage) {
-        setOrders(result.data || []);
-        setPage(0);
-      } else {
-        setOrders(prev => currentPage === 0 ? (result.data || []) : [...prev, ...(result.data || [])]);
-      }
-
-      setHasMore(result.hasMore);
+      setOrders(result.data || []);
+      pagination.setTotalItems(result.total || 0);
     } catch (error) {
       console.error('Error loading work orders:', error);
       setOrders([]);
+      pagination.setTotalItems(0);
     } finally {
       setLoading(false);
     }
-  }
-
-  async function loadMore() {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    await loadOrders(false, nextPage);
   }
 
   const handleDeleteClick = (id: string, orderNumber: string) => {
@@ -89,16 +85,13 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
       await workOrdersService.deleteWorkOrder(deleteConfirm.orderId);
       toast.success(t('work_orders.success_deleted'));
       setDeleteConfirm({ isOpen: false, orderId: '', orderNumber: '' });
-      await loadOrders(true);
+      pagination.reset();
+      await loadOrders();
     } catch (error) {
       console.error('Error deleting work order:', error);
       toast.error(t('work_orders.error_delete'));
     }
   };
-
-  const filteredOrders = filter === 'all'
-    ? orders
-    : orders.filter(order => order.status === filter);
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -187,14 +180,14 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredOrders.length === 0 ? (
+              {orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     {t('work_orders.no_orders')}
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => (
+                orders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-900">{order.order_number}</div>
@@ -269,12 +262,12 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
 
       {/* Mobile Card Layout */}
       <div className="lg:hidden space-y-3">
-        {filteredOrders.length === 0 ? (
+        {orders.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-md">
             <p className="text-gray-500">{t('work_orders.no_orders')}</p>
           </div>
         ) : (
-          filteredOrders.map((order) => (
+          orders.map((order) => (
             <div key={order.id} className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4">
                 <div className="flex items-start justify-between">
@@ -350,15 +343,16 @@ export function WorkOrders({ onNewOrder, onViewOrder, onEditOrder }: WorkOrdersP
         )}
       </div>
 
-      {hasMore && filteredOrders.length > 0 && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={loadMore}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md font-medium min-h-[44px]"
-          >
-            {t('common.load_more')}
-          </button>
-        </div>
+      {orders.length > 0 && (
+        <Pagination
+          currentPage={pagination.state.currentPage}
+          totalPages={pagination.state.totalPages}
+          totalItems={pagination.state.totalItems}
+          pageSize={pagination.state.pageSize}
+          onPageChange={pagination.goToPage}
+          onNextPage={pagination.nextPage}
+          onPrevPage={pagination.prevPage}
+        />
       )}
 
       <ConfirmDialog
