@@ -344,7 +344,11 @@ async function getOpenOrders(supabase: any, auth: AuthContext) {
   const { data, error } = await supabase
     .from('work_orders')
     .select(`
-      *,
+      id,
+      order_number,
+      status,
+      created_at,
+      total_labor_cost,
       customers!customer_id (
         id,
         name,
@@ -391,7 +395,13 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
   const { data, error } = await supabase
     .from('invoices')
     .select(`
-      *,
+      id,
+      invoice_number,
+      payment_status,
+      total,
+      paid_amount,
+      due_date,
+      created_at,
       customers!customer_id (
         id,
         name,
@@ -407,7 +417,8 @@ async function getOpenInvoices(supabase: any, auth: AuthContext) {
     .eq('organization_id', auth.organizationId)
     .neq('payment_status', 'paid')
     .is('deleted_at', null)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(50);
 
   console.log('📋 [OPEN INVOICES] Query result:', {
     count: data?.length,
@@ -490,7 +501,8 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     .eq('organization_id', auth.organizationId)
     .eq('payment_status', 'paid')
     .gte('paid_at', startOfMonth)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    .limit(1000);
 
   console.log('📋 [FINANCIAL] Paid invoices since start of month:', {
     count: invoices?.length,
@@ -531,7 +543,8 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
     .select('amount, expense_date')
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfDay)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    .limit(500);
 
   if (expError) {
     console.error('❌ [FINANCIAL] Expense error:', JSON.stringify(expError, null, 2));
@@ -555,7 +568,7 @@ async function getFinancialSummary(supabase: any, auth: AuthContext) {
 async function getInventoryAlerts(supabase: any, auth: AuthContext) {
   const { data, error } = await supabase
     .from('spare_parts')
-    .select('*')
+    .select('id, part_number, name, quantity, minimum_quantity, unit_price')
     .eq('organization_id', auth.organizationId)
     .is('deleted_at', null)
     .order('quantity', { ascending: true })
@@ -593,7 +606,11 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
   const { data: installments, error: instError } = await supabase
     .from('expense_installments')
     .select(`
-      *,
+      id,
+      installment_number,
+      amount,
+      due_date,
+      payment_status,
       expenses!expense_id (
         expense_number,
         description,
@@ -616,7 +633,8 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
     .select('category, amount')
     .eq('organization_id', auth.organizationId)
     .gte('expense_date', startOfMonth)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    .limit(500);
 
   if (monthError) {
     console.error('Monthly expenses error:', monthError);
@@ -641,7 +659,7 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
 async function getTechniciansPerformance(supabase: any, auth: AuthContext) {
   const { data, error } = await supabase
     .from('technicians')
-    .select('*')
+    .select('id, name, specialization, phone, is_active, base_salary')
     .eq('organization_id', auth.organizationId)
     .eq('is_active', true)
     .is('deleted_at', null)

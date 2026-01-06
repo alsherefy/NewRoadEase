@@ -42,16 +42,26 @@ Deno.serve(async (req: Request) => {
         const lowStockOnly = url.searchParams.get("lowStockOnly") === "true";
         const orderBy = url.searchParams.get("orderBy") || "name";
         const orderDir = url.searchParams.get("orderDir") || "asc";
+        const limit = Math.min(parseInt(url.searchParams.get("limit") || "100"), 1000);
 
-        let query = supabase.from("spare_parts").select("*").eq("organization_id", auth.organizationId);
+        let query = supabase
+          .from("spare_parts")
+          .select("id, part_number, name, quantity, minimum_quantity, unit_price, location, notes, created_at, updated_at")
+          .eq("organization_id", auth.organizationId);
 
         if (lowStockOnly) {
-          const { data: allParts } = await query.order(orderBy, { ascending: orderDir === "asc" });
-          const lowStock = (allParts || []).filter(p => p.quantity <= p.minimum_quantity);
-          return successResponse(lowStock);
+          const { data, error } = await query
+            .lte("quantity", "minimum_quantity")
+            .order(orderBy, { ascending: orderDir === "asc" })
+            .limit(limit);
+
+          if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
+          return successResponse(data || []);
         }
 
-        const { data, error } = await query.order(orderBy, { ascending: orderDir === "asc" });
+        const { data, error } = await query
+          .order(orderBy, { ascending: orderDir === "asc" })
+          .limit(limit);
 
         if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
         return successResponse(data || []);

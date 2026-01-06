@@ -62,7 +62,8 @@ Deno.serve(async (req: Request) => {
             .from('expense_installments')
             .select('*')
             .eq('expense_id', expenseId)
-            .order('installment_number');
+            .order('installment_number')
+            .limit(100);
 
           if (error) throw new Error(error.message);
           return successResponse(data || []);
@@ -82,6 +83,8 @@ Deno.serve(async (req: Request) => {
         }
 
         const category = url.searchParams.get('category');
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 1000);
+
         let query = supabase
           .from('expenses')
           .select('*')
@@ -91,7 +94,9 @@ Deno.serve(async (req: Request) => {
           query = query.eq('category', category);
         }
 
-        const { data, error } = await query.order('expense_date', { ascending: false });
+        const { data, error } = await query
+          .order('expense_date', { ascending: false })
+          .limit(limit);
 
         if (error) throw new Error(error.message);
         return successResponse(data || []);
