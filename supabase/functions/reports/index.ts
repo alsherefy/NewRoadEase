@@ -1,23 +1,94 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
-import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
-import { requirePermission } from "../_shared/middleware/permissionChecker.ts";
-import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
-import { ApiError } from "../_shared/types.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string = "ERROR",
+    public status: number = 400
+  ) {
+    super(message);
+  }
+}
+
+class UnauthorizedError extends ApiError {
+  constructor(message: string = "Unauthorized") {
+    super(message, "UNAUTHORIZED", 401);
+  }
+}
+
+class ForbiddenError extends ApiError {
+  constructor(message: string = "Access denied") {
+    super(message, "FORBIDDEN", 403);
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return corsResponse();
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const auth = await authenticateWithPermissions(req);
-    requirePermission(auth, 'reports.view');
+    const authHeader = req.headers.get("Authorization");
 
-    const supabase = getAuthenticatedClient(req);
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new UnauthorizedError("Missing or invalid authorization header");
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      throw new UnauthorizedError("Invalid or expired token");
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("organization_id, full_name, is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile || !profile.is_active) {
+      throw new UnauthorizedError("User account is inactive");
+    }
+
+    const { data: userRoles } = await supabaseAdmin
+      .rpc("get_user_roles", { p_user_id: user.id });
+
+    if (!userRoles || userRoles.length === 0) {
+      throw new UnauthorizedError("User has no active roles assigned");
+    }
+
+    const roles = userRoles.map((r: any) => r.role.key);
+    const isAdmin = roles.includes('admin');
+
+    const { data: permissionsList } = await supabaseAdmin
+      .rpc("get_user_all_permissions", { p_user_id: user.id });
+
+    const permissions = permissionsList ? permissionsList.map((p: any) => p.permission_key) : [];
+
+    if (!isAdmin && !permissions.includes('reports.view')) {
+      throw new ForbiddenError("ليس لديك صلاحية عرض التقارير - You do not have permission to view reports");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-
     const lastPart = pathParts[pathParts.length - 1];
     const reportType = lastPart !== 'reports' ? lastPart : undefined;
     const startDate = url.searchParams.get("startDate");
@@ -27,18 +98,20 @@ Deno.serve(async (req: Request) => {
       throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
+    let result;
+
     switch (reportType) {
       case "overview": {
         let workOrdersQuery = supabase
           .from("work_orders")
           .select("id, status, created_at", { count: "exact" })
-          .eq("organization_id", auth.organizationId)
+          .eq("organization_id", profile.organization_id)
           .limit(5000);
 
         let invoicesQuery = supabase
           .from("invoices")
           .select("id, total, payment_status, created_at", { count: "exact" })
-          .eq("organization_id", auth.organizationId)
+          .eq("organization_id", profile.organization_id)
           .limit(5000);
 
         if (startDate) {
@@ -50,36 +123,41 @@ Deno.serve(async (req: Request) => {
           invoicesQuery = invoicesQuery.lte("created_at", endDate);
         }
 
-        const [workOrdersResult, invoicesResult, sparePartsResult, lowStockCount] = await Promise.all([
+        const [workOrdersResult, invoicesResult, sparePartsResult, allSpareParts] = await Promise.all([
           workOrdersQuery,
           invoicesQuery,
-          supabase
-            .from("work_order_spare_parts")
-            .select("quantity, unit_price")
-            .limit(5000),
+          supabase.from("work_order_spare_parts").select("quantity, unit_price").limit(5000),
           supabase
             .from("spare_parts")
-            .select("id", { count: "exact" })
-            .eq("organization_id", auth.organizationId)
-            .lte("quantity", "minimum_quantity"),
+            .select("quantity, minimum_quantity")
+            .eq("organization_id", profile.organization_id)
+            .limit(5000),
         ]);
 
         const workOrders = workOrdersResult.data || [];
         const invoices = invoicesResult.data || [];
         const sparePartsSold = sparePartsResult.data || [];
+        const lowStockCount = (allSpareParts.data || []).filter(
+          (sp: any) => sp.quantity <= sp.minimum_quantity
+        ).length;
 
         const completedOrders = workOrders.filter((wo: any) => wo.status === "completed").length;
         const pendingOrders = workOrders.filter((wo: any) => wo.status === "pending").length;
         const inProgressOrders = workOrders.filter((wo: any) => wo.status === "in_progress").length;
 
         const paidInvoices = invoices.filter((inv: any) => inv.payment_status === "paid").length;
-        const unpaidInvoices = invoices.filter((inv: any) => inv.payment_status === "unpaid" || inv.payment_status === "partial").length;
+        const unpaidInvoices = invoices.filter(
+          (inv: any) => inv.payment_status === "unpaid" || inv.payment_status === "partial"
+        ).length;
 
         const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
-        const sparePartsRevenue = sparePartsSold.reduce((sum: number, sp: any) => sum + (sp.quantity * sp.unit_price), 0);
+        const sparePartsRevenue = sparePartsSold.reduce(
+          (sum: number, sp: any) => sum + sp.quantity * sp.unit_price,
+          0
+        );
         const totalSparePartsSold = sparePartsSold.reduce((sum: number, sp: any) => sum + sp.quantity, 0);
 
-        return successResponse({
+        result = {
           totalRevenue,
           totalWorkOrders: workOrders.length,
           completedOrders,
@@ -90,47 +168,52 @@ Deno.serve(async (req: Request) => {
           unpaidInvoices,
           totalSparePartsSold,
           sparePartsRevenue,
-          lowStockItems: lowStockCount.count || 0,
-        });
+          lowStockItems: lowStockCount,
+        };
+        break;
       }
 
       case "inventory": {
-        const [totalCountResult, totalValueResult, lowStockResult] = await Promise.all([
+        const [totalCountResult, totalValueResult, allSparePartsResult] = await Promise.all([
           supabase
             .from("spare_parts")
             .select("id", { count: "exact" })
-            .eq("organization_id", auth.organizationId),
+            .eq("organization_id", profile.organization_id),
           supabase
             .from("spare_parts")
             .select("quantity, unit_price")
-            .eq("organization_id", auth.organizationId)
+            .eq("organization_id", profile.organization_id)
             .limit(5000),
           supabase
             .from("spare_parts")
             .select("name, quantity, minimum_quantity")
-            .eq("organization_id", auth.organizationId)
-            .lte("quantity", "minimum_quantity")
-            .limit(100),
+            .eq("organization_id", profile.organization_id)
+            .limit(5000),
         ]);
 
         if (totalCountResult.error) throw new ApiError(totalCountResult.error.message, "DATABASE_ERROR", 500);
         if (totalValueResult.error) throw new ApiError(totalValueResult.error.message, "DATABASE_ERROR", 500);
-        if (lowStockResult.error) throw new ApiError(lowStockResult.error.message, "DATABASE_ERROR", 500);
+        if (allSparePartsResult.error) throw new ApiError(allSparePartsResult.error.message, "DATABASE_ERROR", 500);
 
         const totalValue = (totalValueResult.data || []).reduce(
-          (sum: number, sp: any) => sum + (sp.quantity * Number(sp.unit_price)),
+          (sum: number, sp: any) => sum + sp.quantity * Number(sp.unit_price),
           0
         );
 
-        return successResponse({
-          totalItems: totalCountResult.count || 0,
-          totalValue,
-          lowStockItems: (lowStockResult.data || []).map((item: any) => ({
+        const lowStockItems = (allSparePartsResult.data || [])
+          .filter((item: any) => item.quantity <= item.minimum_quantity)
+          .map((item: any) => ({
             name: item.name,
             quantity: item.quantity,
             minimum_quantity: item.minimum_quantity,
-          })),
-        });
+          }));
+
+        result = {
+          totalItems: totalCountResult.count || 0,
+          totalValue,
+          lowStockItems,
+        };
+        break;
       }
 
       case "technicians": {
@@ -138,7 +221,7 @@ Deno.serve(async (req: Request) => {
           .from("technicians")
           .select("id, name, specialization, phone, contract_type, percentage, fixed_salary, base_salary")
           .eq("is_active", true)
-          .eq("organization_id", auth.organizationId)
+          .eq("organization_id", profile.organization_id)
           .limit(100);
 
         if (techError) throw new ApiError(techError.message, "DATABASE_ERROR", 500);
@@ -204,13 +287,36 @@ Deno.serve(async (req: Request) => {
           };
         });
 
-        return successResponse(reports.sort((a, b) => b.totalRevenue - a.totalRevenue));
+        result = reports.sort((a, b) => b.totalRevenue - a.totalRevenue);
+        break;
       }
 
       default:
         throw new ApiError("Invalid report type. Use: overview, inventory, or technicians", "INVALID_REPORT_TYPE", 400);
     }
-  } catch (error) {
-    return errorResponse(error);
+
+    return new Response(
+      JSON.stringify({ success: true, data: result, error: null }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (error: any) {
+    const errorStatus = error.status || 500;
+    const errorCode = error.code || "ERROR";
+    const errorMessage = error.message || "An unexpected error occurred";
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        data: null,
+        error: { code: errorCode, message: errorMessage, details: null },
+      }),
+      {
+        status: errorStatus,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
