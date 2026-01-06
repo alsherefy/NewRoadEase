@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
         if (customerId) {
           const { data, error } = await supabase
             .from('customers')
-            .select('id, name, phone, email, address, created_at, updated_at')
+            .select('id, name, phone, email, created_at')
             .eq('id', customerId)
             .eq('organization_id', auth.organizationId)
             .maybeSingle();
@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
 
         const { data, error, count } = await supabase
           .from('customers')
-          .select('id, name, phone, email, address, created_at', { count: 'exact' })
+          .select('id, name, phone, email, created_at', { count: 'exact' })
           .eq('organization_id', auth.organizationId)
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1);

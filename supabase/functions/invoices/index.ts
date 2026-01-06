@@ -107,7 +107,7 @@ Deno.serve(async (req: Request) => {
               *,
               work_order:work_orders(
                 id,
-                customer:customers(id, name, phone, email, address)
+                customer:customers(id, name, phone, email)
               ),
               invoice_items(*)
             `)
