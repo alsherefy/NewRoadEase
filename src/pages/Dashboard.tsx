@@ -21,7 +21,7 @@ interface DashboardProps {
 
 export function Dashboard({ onNavigate }: DashboardProps = {}) {
   const { t } = useTranslation();
-  const { hasPermission, hasDetailedPermission } = useAuth();
+  const { hasPermission, hasDetailedPermission, user, computedPermissions } = useAuth();
   const [stats, setStats] = useState<DashboardBasicStats>({
     totalRevenue: 0,
     completedOrders: 0,
@@ -32,33 +32,24 @@ export function Dashboard({ onNavigate }: DashboardProps = {}) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user?.id]);
 
   async function loadDashboardData() {
+    if (!user?.id) return;
+
     try {
       const [basicStats, enhanced] = await Promise.all([
-        dashboardService.getStats(),
-        dashboardService.getEnhancedDashboard(),
+        dashboardService.getStats(user.id, computedPermissions),
+        dashboardService.getEnhancedDashboard(user.id, computedPermissions),
       ]);
-
-      console.log('=== DASHBOARD DEBUG START ===');
-      console.log('1. Basic Stats:', JSON.stringify(basicStats, null, 2));
-      console.log('2. Enhanced Data:', JSON.stringify(enhanced, null, 2));
-      console.log('3. Open Invoices Section:', JSON.stringify(enhanced?.sections?.openInvoices, null, 2));
-      console.log('4. Financial Stats Section:', JSON.stringify(enhanced?.sections?.financialStats, null, 2));
-      console.log('5. Inventory Alerts:', JSON.stringify(enhanced?.sections?.inventoryAlerts, null, 2));
-      console.log('6. Expenses:', JSON.stringify(enhanced?.sections?.expenses, null, 2));
-      console.log('7. Permissions:', JSON.stringify(enhanced?.permissions, null, 2));
-      console.log('=== DASHBOARD DEBUG END ===');
 
       setStats(basicStats);
       setEnhancedData(enhanced);
     } catch (error) {
-      console.error('=== DASHBOARD ERROR ===');
-      console.error('Error details:', error);
-      console.error('Error message:', error instanceof Error ? error.message : String(error));
-      console.error('=== ERROR END ===');
+      console.error('Dashboard loading error:', error);
     } finally {
       setLoading(false);
     }

@@ -459,64 +459,273 @@ class SettingsService {
   }
 }
 
-interface DashboardStats {
-  totalRevenue: number;
-  completedOrders: number;
-  activeCustomers: number;
-  activeTechnicians: number;
-}
-
-interface EnhancedDashboardData {
-  sections: {
-    financialStats?: any;
-    openOrders?: any;
-    openInvoices?: any;
-    inventoryAlerts?: any;
-    expenses?: any;
-    techniciansPerformance?: any;
-  };
-  permissions: {
-    financialStats: boolean;
-    openOrders: boolean;
-    openInvoices: boolean;
-    inventoryAlerts: boolean;
-    expenses: boolean;
-    techniciansPerformance: boolean;
-    activities: boolean;
-  };
-}
+import {
+  DashboardBasicStats,
+  DashboardFinancialStats,
+  DashboardOpenOrders,
+  DashboardOpenInvoices,
+  DashboardInventoryAlerts,
+  DashboardExpensesSummary,
+  DashboardTechniciansPerformance,
+  EnhancedDashboardData,
+  DashboardPermissions,
+} from '../types/dashboard';
 
 class DashboardService {
-  async getStats(): Promise<DashboardStats> {
-    return apiClient.get<DashboardStats>('dashboard');
+  async getStats(userId: string, computedPermissions: string[]): Promise<DashboardBasicStats> {
+    const isAdmin = computedPermissions.includes('admin');
+    const hasFinancialStats = isAdmin || computedPermissions.includes('dashboard.view_financial_stats');
+
+    const { data, error } = await supabase
+      .from('dashboard_stats_cache')
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw new ApiError(error.message, 500);
+
+    return {
+      totalRevenue: hasFinancialStats ? (data?.total_revenue || 0) : 0,
+      completedOrders: data?.completed_orders || 0,
+      activeCustomers: data?.active_customers || 0,
+      activeTechnicians: data?.active_technicians || 0,
+    };
   }
 
-  async getEnhancedDashboard(): Promise<EnhancedDashboardData> {
-    return apiClient.get<EnhancedDashboardData>('dashboard/enhanced');
+  async getEnhancedDashboard(userId: string, computedPermissions: string[]): Promise<EnhancedDashboardData> {
+    const isAdmin = computedPermissions.includes('admin');
+
+    const permissions: DashboardPermissions = {
+      financialStats: isAdmin || computedPermissions.includes('dashboard.view_financial_stats'),
+      openOrders: isAdmin || computedPermissions.includes('dashboard.view_open_orders'),
+      openInvoices: isAdmin || computedPermissions.includes('dashboard.view_open_invoices'),
+      inventoryAlerts: isAdmin || computedPermissions.includes('dashboard.view_inventory_alerts'),
+      expenses: isAdmin || computedPermissions.includes('dashboard.view_expenses'),
+      techniciansPerformance: isAdmin || computedPermissions.includes('dashboard.view_technicians_performance'),
+      activities: isAdmin || computedPermissions.includes('dashboard.view_activities'),
+    };
+
+    const sections: any = {};
+
+    if (permissions.financialStats) {
+      sections.financialStats = await this.getFinancialStats();
+    }
+
+    if (permissions.openOrders) {
+      sections.openOrders = await this.getOpenOrders();
+    }
+
+    if (permissions.openInvoices) {
+      sections.openInvoices = await this.getOpenInvoices(permissions.financialStats);
+    }
+
+    if (permissions.inventoryAlerts) {
+      sections.inventoryAlerts = await this.getInventoryAlerts();
+    }
+
+    if (permissions.expenses) {
+      sections.expenses = await this.getExpensesSummary();
+    }
+
+    if (permissions.techniciansPerformance) {
+      sections.techniciansPerformance = await this.getTechniciansPerformance();
+    }
+
+    return { sections, permissions };
   }
 
-  async getOpenOrders(): Promise<any> {
-    return apiClient.get('dashboard/open-orders');
+  async getFinancialStats(): Promise<DashboardFinancialStats> {
+    const today = new Date().toISOString().split('T')[0];
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - 7);
+    const weekStart = startOfWeek.toISOString().split('T')[0];
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    const monthStart = startOfMonth.toISOString().split('T')[0];
+
+    const [todayRev, weekRev, monthRev, todayExp] = await Promise.all([
+      supabase
+        .from('invoices')
+        .select('total_amount')
+        .eq('payment_status', 'paid')
+        .gte('paid_at', today)
+        .then(r => r.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0),
+
+      supabase
+        .from('invoices')
+        .select('total_amount')
+        .eq('payment_status', 'paid')
+        .gte('paid_at', weekStart)
+        .then(r => r.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0),
+
+      supabase
+        .from('invoices')
+        .select('total_amount')
+        .eq('payment_status', 'paid')
+        .gte('paid_at', monthStart)
+        .then(r => r.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0),
+
+      supabase
+        .from('expenses')
+        .select('amount')
+        .gte('date', today)
+        .then(r => r.data?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0),
+    ]);
+
+    return {
+      todayRevenue: todayRev,
+      weekRevenue: weekRev,
+      monthRevenue: monthRev,
+      todayExpenses: todayExp,
+      netProfit: monthRev - todayExp,
+    };
   }
 
-  async getOpenInvoices(): Promise<any> {
-    return apiClient.get('dashboard/open-invoices');
+  async getOpenOrders(): Promise<DashboardOpenOrders> {
+    const { data: inProgress } = await supabase
+      .from('work_orders_detailed')
+      .select('*')
+      .eq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const { data: pending } = await supabase
+      .from('work_orders_detailed')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const { count } = await supabase
+      .from('work_orders')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'in_progress']);
+
+    return {
+      inProgress: inProgress || [],
+      pending: pending || [],
+      totalCount: count || 0,
+    };
   }
 
-  async getFinancialSummary(): Promise<any> {
-    return apiClient.get('dashboard/financial-summary');
+  async getOpenInvoices(includeAmounts: boolean): Promise<DashboardOpenInvoices> {
+    const { data: unpaid } = await supabase
+      .from('invoices_detailed')
+      .select('*')
+      .eq('payment_status', 'unpaid')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const today = new Date().toISOString().split('T')[0];
+    const { data: overdue } = await supabase
+      .from('invoices_detailed')
+      .select('*')
+      .eq('payment_status', 'unpaid')
+      .lt('due_date', today)
+      .order('due_date', { ascending: true })
+      .limit(5);
+
+    let totalAmount = 0;
+    let totalCount = 0;
+
+    if (includeAmounts) {
+      const { data: allUnpaid, count } = await supabase
+        .from('invoices')
+        .select('total_amount', { count: 'exact' })
+        .eq('payment_status', 'unpaid');
+
+      totalAmount = allUnpaid?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+      totalCount = count || 0;
+    }
+
+    return {
+      unpaidInvoices: unpaid || [],
+      overdueInvoices: overdue || [],
+      totalAmount,
+      totalCount,
+    };
   }
 
-  async getInventoryAlerts(): Promise<any> {
-    return apiClient.get('dashboard/inventory-alerts');
+  async getInventoryAlerts(): Promise<DashboardInventoryAlerts> {
+    const { data: outOfStock } = await supabase
+      .from('spare_parts')
+      .select('*')
+      .eq('quantity', 0)
+      .order('name', { ascending: true });
+
+    const { data: lowStock } = await supabase
+      .from('spare_parts')
+      .select('*')
+      .gt('quantity', 0)
+      .filter('quantity', 'lt', 'minimum_quantity')
+      .order('quantity', { ascending: true })
+      .limit(10);
+
+    const { count } = await supabase
+      .from('spare_parts')
+      .select('*', { count: 'exact', head: true })
+      .filter('quantity', 'lte', 'minimum_quantity');
+
+    return {
+      outOfStock: outOfStock || [],
+      lowStock: lowStock || [],
+      totalLowStockItems: count || 0,
+    };
   }
 
-  async getExpensesSummary(): Promise<any> {
-    return apiClient.get('dashboard/expenses-summary');
+  async getExpensesSummary(): Promise<DashboardExpensesSummary> {
+    const today = new Date().toISOString().split('T')[0];
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    const monthStart = startOfMonth.toISOString().split('T')[0];
+
+    const { data: dueToday } = await supabase
+      .from('expense_installments')
+      .select(`
+        *,
+        expenses (
+          expense_number,
+          description,
+          category
+        )
+      `)
+      .eq('payment_status', 'pending')
+      .lte('due_date', today)
+      .order('due_date', { ascending: true })
+      .limit(5);
+
+    const { data: monthlyExpenses } = await supabase
+      .from('expenses')
+      .select('amount, category')
+      .gte('date', monthStart);
+
+    const monthlyTotal = monthlyExpenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+    const byCategory: Record<string, number> = {};
+
+    monthlyExpenses?.forEach(exp => {
+      if (exp.category) {
+        byCategory[exp.category] = (byCategory[exp.category] || 0) + (exp.amount || 0);
+      }
+    });
+
+    return {
+      dueToday: dueToday || [],
+      monthlyTotal,
+      byCategory,
+    };
   }
 
-  async getTechniciansPerformance(): Promise<any> {
-    return apiClient.get('dashboard/technicians-performance');
+  async getTechniciansPerformance(): Promise<DashboardTechniciansPerformance> {
+    const { data: technicians, count } = await supabase
+      .from('technicians')
+      .select('*', { count: 'exact' })
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+      .limit(10);
+
+    return {
+      activeTechnicians: count || 0,
+      technicians: technicians || [],
+    };
   }
 
   async getDashboardPreferences(): Promise<any> {
