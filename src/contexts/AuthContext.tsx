@@ -65,29 +65,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setComputedPermissions(cachedPerms);
       }
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
+      // OPTIMIZED: Single RPC call instead of 3 separate queries (67% reduction)
+      const { data: permData, error: permError } = await supabase
+        .rpc('get_my_permissions')
         .maybeSingle();
 
-      if (userError) throw userError;
+      if (permError) throw permError;
 
-      if (userData) {
-        setUser(userData);
+      if (permData) {
+        // Set user data from permissions result
+        setUser({
+          id: permData.user_id,
+          organization_id: permData.organization_id,
+          is_active: permData.is_active,
+          email: '',
+          full_name: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
-        const [rolesResult, permsResult] = await Promise.all([
-          supabase.rpc('get_user_roles', { p_user_id: userId }),
-          supabase.rpc('get_user_all_permissions', { p_user_id: userId })
-        ]);
+        // Set roles (convert array to UserRole format for compatibility)
+        const roles: UserRole[] = (permData.roles || []).map((roleKey: string) => ({
+          user_id: permData.user_id,
+          role_id: roleKey,
+          role: {
+            key: roleKey,
+            is_active: true,
+          },
+        }));
+        setUserRoles(roles);
 
-        setUserRoles(rolesResult.data || []);
-
-        if (permsResult.data) {
-          const permissionKeys = permsResult.data.map((p: { permission_key: string }) => p.permission_key);
-          setComputedPermissions(permissionKeys);
-          permissionCacheUtils.set(userId, permissionKeys);
-        }
+        // Set permissions
+        const permissionKeys = permData.permissions || [];
+        setComputedPermissions(permissionKeys);
+        permissionCacheUtils.set(userId, permissionKeys);
       }
     } catch (error) {
       console.error('Error loading user data:', error);

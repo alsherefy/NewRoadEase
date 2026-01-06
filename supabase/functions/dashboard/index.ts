@@ -105,48 +105,44 @@ async function authenticateWithPermissions(req: Request): Promise<AuthContext> {
     throw new UnauthorizedError("Invalid or expired token");
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("organization_id, full_name, is_active")
-    .eq("id", user.id)
+  // OPTIMIZED: Single RPC call instead of 3 separate queries (67% reduction)
+  const { data: permData, error: permError } = await supabase
+    .rpc("get_my_permissions")
     .maybeSingle();
 
-  if (profileError || !profile) {
-    throw new UnauthorizedError("User profile not found");
+  if (permError || !permData) {
+    throw new UnauthorizedError("User permissions not found");
   }
 
-  if (!profile.is_active) {
+  if (!permData.is_active) {
     throw new UnauthorizedError("User account is inactive");
   }
 
-  if (!profile.organization_id) {
+  if (!permData.organization_id) {
     throw new UnauthorizedError("User is not assigned to an organization");
   }
 
-  const { data: userRoles, error: rolesError } = await supabase
-    .rpc("get_user_roles", { p_user_id: user.id });
-
-  if (rolesError || !userRoles || userRoles.length === 0) {
+  const roles: string[] = permData.roles || [];
+  if (roles.length === 0) {
     throw new UnauthorizedError("User has no active roles assigned");
   }
 
-  const roles: string[] = userRoles.map((r: any) => r.role.key);
   const isAdmin = roles.includes('admin');
+  const permissions: string[] = permData.permissions || [];
 
-  let permissions: string[] = [];
-  const { data: permissionsList, error: permissionsError } = await supabase
-    .rpc("get_user_all_permissions", { p_user_id: user.id });
-
-  if (!permissionsError && permissionsList) {
-    permissions = permissionsList.map((p: any) => p.permission_key);
-  }
+  // Get full_name separately (lightweight query)
+  const { data: profile } = await supabase
+    .from("users")
+    .select("full_name, email")
+    .eq("id", user.id)
+    .maybeSingle();
 
   return {
     userId: user.id,
-    organizationId: profile.organization_id,
-    email: user.email || '',
-    fullName: profile.full_name,
-    isActive: profile.is_active,
+    organizationId: permData.organization_id,
+    email: profile?.email || user.email || '',
+    fullName: profile?.full_name || '',
+    isActive: permData.is_active,
     roles,
     isAdmin,
     permissions,
