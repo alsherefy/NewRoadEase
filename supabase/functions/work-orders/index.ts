@@ -58,8 +58,12 @@ Deno.serve(async (req: Request) => {
               status,
               total_labor_cost,
               total_parts_cost,
+              customer_id,
+              vehicle_id,
+              organization_id,
               created_at,
               updated_at,
+              completed_at,
               customer:customers(id, name, phone, email),
               vehicle:vehicles(id, car_make, car_model, car_year, plate_number)
             `)

@@ -62,11 +62,28 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const { data, error } = await supabase
+        const activeOnly = url.searchParams.get('activeOnly') === 'true';
+        const limit = url.searchParams.get('limit');
+
+        let query = supabase
           .from('technicians')
           .select('*')
-          .eq('organization_id', auth.organizationId)
-          .order('created_at', { ascending: false });
+          .eq('organization_id', auth.organizationId);
+
+        if (activeOnly) {
+          query = query.eq('is_active', true);
+        }
+
+        query = query.order('created_at', { ascending: false });
+
+        if (limit) {
+          const limitNum = Math.min(parseInt(limit), 1000);
+          query = query.limit(limitNum);
+        } else {
+          query = query.limit(1000);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw new Error(error.message);
         return successResponse(data || []);

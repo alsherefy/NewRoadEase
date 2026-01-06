@@ -65,9 +65,10 @@ Deno.serve(async (req: Request) => {
         const customerId = url.searchParams.get('customerId') || url.searchParams.get('customer_id');
         let query = supabase
           .from('vehicles')
-          .select('*, customer:customers(id, name)')
+          .select('id, customer_id, car_make, car_model, car_year, plate_number, notes, created_at, customer:customers(id, name)')
           .eq('organization_id', auth.organizationId)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(1000);
 
         if (customerId) {
           query = query.eq('customer_id', customerId);

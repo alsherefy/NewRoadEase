@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
           return successResponse(data);
         }
 
-        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 1000);
         const offset = parseInt(url.searchParams.get('offset') || '0');
 
         const { data, error, count } = await supabase
