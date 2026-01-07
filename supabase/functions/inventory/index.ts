@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
 
           const { data, error } = await supabase
             .from("spare_parts")
-            .select("*")
+            .select("id, part_number, name, description, category, supplier, quantity, minimum_quantity, unit_price, location, created_at, updated_at")
             .eq("id", sparePartId)
             .eq("organization_id", auth.organizationId)
             .maybeSingle();
@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
 
         let query = supabase
           .from("spare_parts")
-          .select("id, part_number, name, quantity, minimum_quantity, unit_price, location, notes, created_at, updated_at")
+          .select("id, part_number, name, description, category, supplier, quantity, minimum_quantity, unit_price, location, created_at, updated_at")
           .eq("organization_id", auth.organizationId);
 
         if (lowStockOnly) {
