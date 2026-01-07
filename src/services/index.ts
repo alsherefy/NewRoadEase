@@ -692,7 +692,7 @@ class DashboardService {
           category
         )
       `)
-      .eq('status', 'pending')
+      .eq('is_paid', false)
       .lte('due_date', today)
       .order('due_date', { ascending: true })
       .limit(5);

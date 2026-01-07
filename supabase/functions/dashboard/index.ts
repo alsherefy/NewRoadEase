@@ -606,19 +606,23 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
       installment_number,
       amount,
       due_date,
-      payment_status,
+      is_paid,
       expenses!expense_id (
         expense_number,
         description,
-        category
+        category,
+        organization_id
       )
     `)
-    .eq('organization_id', auth.organizationId)
     .gte('due_date', startOfDay)
     .lt('due_date', endOfDay)
-    .eq('payment_status', 'pending')
+    .eq('is_paid', false)
     .order('due_date', { ascending: true })
-    .limit(5);
+    .limit(50);
+
+  const filteredInstallments = installments?.filter(
+    (inst: any) => inst.expenses?.organization_id === auth.organizationId
+  ).slice(0, 5);
 
   if (instError) {
     console.error('Installments error:', instError);
@@ -646,7 +650,7 @@ async function getExpensesSummary(supabase: any, auth: AuthContext) {
   });
 
   return {
-    dueToday: installments || [],
+    dueToday: filteredInstallments || [],
     monthlyTotal: Number(monthlyTotal.toFixed(2)),
     byCategory,
   };
