@@ -329,6 +329,7 @@
     "success_created": "Spare part added successfully",
     "success_updated": "Spare part updated successfully",
     "success_deleted": "Spare part deleted successfully",
+    "error_loading": "An error occurred while loading inventory",
     "error_create": "An error occurred while adding the spare part",
     "error_update": "An error occurred while updating the spare part",
     "error_delete": "An error occurred while deleting the spare part",
