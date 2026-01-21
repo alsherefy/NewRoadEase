@@ -1,4 +1,4 @@
-import { ApiResponse } from "../types.ts";
+import { ApiResponse, ErrorResponse } from "../types/api.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +15,7 @@ export function corsResponse(): Response {
 
 export function successResponse<T>(data: T, status: number = 200): Response {
   const response: ApiResponse<T> = {
-    success: true,
     data,
-    error: null,
   };
 
   return new Response(JSON.stringify(response), {
@@ -29,27 +27,42 @@ export function successResponse<T>(data: T, status: number = 200): Response {
   });
 }
 
-export function errorResponse(error: any, status?: number): Response {
-  const errorStatus = status || error.status || 500;
-  const errorCode = error.code || "ERROR";
-  const errorMessage = error.message || "An unexpected error occurred";
-  const errorDetails = error.details || null;
+export function errorResponse(
+  error: string | Error | ErrorResponse,
+  status: number = 500,
+  details?: Record<string, unknown>
+): Response {
+  let errorMessage: string;
+  let errorCode: string | undefined;
+  let errorDetails: Record<string, unknown> | undefined;
+
+  if (typeof error === "string") {
+    errorMessage = error;
+  } else if (error instanceof Error) {
+    errorMessage = error.message;
+    errorCode = error.name;
+  } else {
+    errorMessage = error.error || "An unexpected error occurred";
+    errorCode = error.code;
+    errorDetails = error.details;
+  }
 
   const response: ApiResponse = {
-    success: false,
-    data: null,
-    error: {
-      code: errorCode,
-      message: errorMessage,
-      details: errorDetails,
-    },
+    error: errorMessage,
+    message: errorCode,
   };
 
+  if (details || errorDetails) {
+    (response as ErrorResponse).details = details || errorDetails;
+  }
+
   return new Response(JSON.stringify(response), {
-    status: errorStatus,
+    status,
     headers: {
       ...corsHeaders,
       "Content-Type": "application/json",
     },
   });
 }
+
+export { corsHeaders };

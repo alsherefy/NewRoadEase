@@ -1,6 +1,7 @@
-import { UnauthorizedError } from "../types.ts";
+import { AuthenticationError } from "./errorHandler.ts";
 import { Role, ALL_ROLES } from "../constants/roles.ts";
-import { getServiceRoleClient } from "../utils/supabase.ts";;
+import { getServiceRoleClient } from "../utils/supabase.ts";
+import { authCache, type AuthContextData } from "../utils/authCache.ts";
 
 export interface AuthContext {
   userId: string;
@@ -13,82 +14,70 @@ export interface AuthContext {
   permissions: string[];
 }
 
-/**
- * Unified authentication middleware that loads user, roles, and permissions in one go
- * This eliminates redundant database calls and provides consistent auth context
- */
 export async function authenticateWithPermissions(req: Request): Promise<AuthContext> {
   const authHeader = req.headers.get("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new UnauthorizedError("Missing or invalid authorization header");
+    throw new AuthenticationError("Missing or invalid authorization header");
   }
 
   const token = authHeader.replace("Bearer ", "");
+
+  const cached = authCache.get(token);
+  if (cached) {
+    return transformAuthContext(cached);
+  }
+
   const supabase = getServiceRoleClient();
 
-  // Step 1: Verify token and get user
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
   if (authError || !user) {
-    throw new UnauthorizedError("Invalid or expired token");
+    throw new AuthenticationError("Invalid or expired token");
   }
 
-  // Step 2: Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("organization_id, full_name, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { data: contextData, error: contextError } = await supabase
+    .rpc("get_my_auth_context");
 
-  if (profileError || !profile) {
-    throw new UnauthorizedError("User profile not found");
+  if (contextError || !contextData) {
+    throw new AuthenticationError("Unable to load user context");
   }
 
-  if (!profile.is_active) {
-    throw new UnauthorizedError("User account is inactive");
+  if (!contextData.is_active) {
+    throw new AuthenticationError("User account is inactive");
   }
 
-  if (!profile.organization_id) {
-    throw new UnauthorizedError("User is not assigned to an organization");
+  if (!contextData.organization_id) {
+    throw new AuthenticationError("User is not assigned to an organization");
   }
 
-  // Step 3: Get user roles
-  const { data: userRoles, error: rolesError } = await supabase
-    .rpc("get_user_roles", { p_user_id: user.id });
-
-  if (rolesError || !userRoles || userRoles.length === 0) {
-    throw new UnauthorizedError("User has no active roles assigned");
+  if (!contextData.roles || contextData.roles.length === 0) {
+    throw new AuthenticationError("User has no active roles assigned");
   }
 
-  const roles: Role[] = userRoles
-    .map((r: any) => r.role.key as Role)
-    .filter((role: Role) => ALL_ROLES.includes(role));
+  authCache.set(token, contextData);
+
+  return transformAuthContext(contextData);
+}
+
+function transformAuthContext(data: AuthContextData): AuthContext {
+  const roles: Role[] = data.roles
+    .filter((role: string) => ALL_ROLES.includes(role as Role)) as Role[];
 
   if (roles.length === 0) {
-    throw new UnauthorizedError("User has no valid roles");
+    throw new AuthenticationError("User has no valid roles");
   }
 
   const isAdmin = roles.includes('admin');
 
-  // Step 4: Get all permissions (detailed permission keys like 'expenses.create', 'expenses.update')
-  let permissions: string[] = [];
-
-  const { data: permissionsList, error: permissionsError } = await supabase
-    .rpc("get_user_all_permissions", { p_user_id: user.id });
-
-  if (!permissionsError && permissionsList) {
-    permissions = permissionsList.map((p: any) => p.permission_key);
-  }
-
   return {
-    userId: user.id,
-    organizationId: profile.organization_id,
-    email: user.email || '',
-    fullName: profile.full_name,
-    isActive: profile.is_active,
+    userId: data.user_id,
+    organizationId: data.organization_id,
+    email: data.email,
+    fullName: data.full_name,
+    isActive: data.is_active,
     roles,
     isAdmin,
-    permissions,
+    permissions: data.permissions || [],
   };
 }

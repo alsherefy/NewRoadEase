@@ -3,6 +3,7 @@ import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
 import { requirePermission } from "../_shared/middleware/permissionChecker.ts";
 import { successResponse, errorResponse, corsResponse } from "../_shared/utils/response.ts";
+import { handleError } from "../_shared/middleware/errorHandler.ts";
 import { validateUUID, validateRequestBody } from "../_shared/utils/validation.ts";
 import { ApiError } from "../_shared/types.ts";
 
@@ -118,7 +119,7 @@ Deno.serve(async (req: Request) => {
       default:
         throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
-  } catch (err) {
-    return errorResponse(err as Error);
+  } catch (error) {
+    return handleError(error);
   }
 });

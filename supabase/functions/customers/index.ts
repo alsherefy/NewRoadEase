@@ -2,39 +2,12 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { getAuthenticatedClient } from '../_shared/utils/supabase.ts';
 import { authenticateWithPermissions } from '../_shared/middleware/authWithPermissions.ts';
 import { requirePermission } from '../_shared/middleware/permissionChecker.ts';
-import { ApiError } from '../_shared/types.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
-
-interface ApiResponse<T = any> {
-  success: boolean;
-  data: T | null;
-  error: { code: string; message: string; details?: any } | null;
-}
-
-function successResponse<T>(data: T, status = 200): Response {
-  const response: ApiResponse<T> = { success: true, data, error: null };
-  return new Response(JSON.stringify(response), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-function errorResponse(message: string, status = 400, code = 'ERROR'): Response {
-  const response: ApiResponse = { success: false, data: null, error: { code, message } };
-  return new Response(JSON.stringify(response), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
+import { corsResponse, successResponse, errorResponse } from '../_shared/utils/response.ts';
+import { handleError } from '../_shared/middleware/errorHandler.ts';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsResponse();
   }
 
   try {
@@ -131,13 +104,7 @@ Deno.serve(async (req: Request) => {
       default:
         throw new Error('Method not allowed');
     }
-  } catch (err) {
-    const error = err as ApiError | Error;
-
-    if (error instanceof ApiError) {
-      return errorResponse(error.message, error.status, error.code);
-    }
-
-    return errorResponse(error.message, 500, 'ERROR');
+  } catch (error) {
+    return handleError(error);
   }
 });

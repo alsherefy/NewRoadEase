@@ -1,153 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-interface AuthContext {
-  userId: string;
-  organizationId: string;
-  email: string;
-  fullName: string;
-  isActive: boolean;
-  roles: string[];
-  isAdmin: boolean;
-  permissions: string[];
-}
-
-class ApiError extends Error {
-  constructor(
-    message: string,
-    public code: string = "ERROR",
-    public status: number = 400
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-class UnauthorizedError extends ApiError {
-  constructor(message: string = "Unauthorized") {
-    super(message, "UNAUTHORIZED", 401);
-  }
-}
-
-class ForbiddenError extends ApiError {
-  constructor(message: string = "Access denied") {
-    super(message, "FORBIDDEN", 403);
-  }
-}
-
-function getServiceRoleClient() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function corsResponse(): Response {
-  return new Response(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
-}
-
-function successResponse<T>(data: T, status: number = 200): Response {
-  return new Response(JSON.stringify({
-    success: true,
-    data,
-    error: null,
-  }), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-function errorResponse(error: any, status?: number): Response {
-  const errorStatus = status || error.status || 500;
-  const errorCode = error.code || "ERROR";
-  const errorMessage = error.message || "An unexpected error occurred";
-
-  return new Response(JSON.stringify({
-    success: false,
-    data: null,
-    error: {
-      code: errorCode,
-      message: errorMessage,
-    },
-  }), {
-    status: errorStatus,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-async function authenticateWithPermissions(req: Request): Promise<AuthContext> {
-  const authHeader = req.headers.get("Authorization");
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new UnauthorizedError("Missing or invalid authorization header");
-  }
-
-  const token = authHeader.replace("Bearer ", "");
-  const supabase = getServiceRoleClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-  if (authError || !user) {
-    throw new UnauthorizedError("Invalid or expired token");
-  }
-
-  // OPTIMIZED: Single RPC call instead of 3 separate queries (67% reduction)
-  const { data: permData, error: permError } = await supabase
-    .rpc("get_my_permissions")
-    .maybeSingle();
-
-  if (permError || !permData) {
-    throw new UnauthorizedError("User permissions not found");
-  }
-
-  if (!permData.is_active) {
-    throw new UnauthorizedError("User account is inactive");
-  }
-
-  if (!permData.organization_id) {
-    throw new UnauthorizedError("User is not assigned to an organization");
-  }
-
-  const roles: string[] = permData.roles || [];
-  if (roles.length === 0) {
-    throw new UnauthorizedError("User has no active roles assigned");
-  }
-
-  const isAdmin = roles.includes('admin');
-  const permissions: string[] = permData.permissions || [];
-
-  // Get full_name separately (lightweight query)
-  const { data: profile } = await supabase
-    .from("users")
-    .select("full_name, email")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return {
-    userId: user.id,
-    organizationId: permData.organization_id,
-    email: profile?.email || user.email || '',
-    fullName: profile?.full_name || '',
-    isActive: permData.is_active,
-    roles,
-    isAdmin,
-    permissions,
-  };
-}
+import { corsResponse, successResponse, errorResponse } from "../_shared/utils/response.ts";
+import { authenticateWithPermissions, type AuthContext } from "../_shared/middleware/authWithPermissions.ts";
+import { AuthorizationError, handleError } from "../_shared/middleware/errorHandler.ts";
+import { getServiceRoleClient } from "../_shared/utils/supabase.ts";
+import type { DashboardStats } from "../_shared/types/api.ts";
 
 function hasPermission(auth: AuthContext, permissionKey: string): boolean {
   if (auth.isAdmin) return true;
@@ -156,7 +12,7 @@ function hasPermission(auth: AuthContext, permissionKey: string): boolean {
 
 function requirePermission(auth: AuthContext, permissionKey: string): void {
   if (!hasPermission(auth, permissionKey)) {
-    throw new ForbiddenError(
+    throw new AuthorizationError(
       `ليس لديك صلاحية ${permissionKey} - You do not have permission to ${permissionKey}`
     );
   }
@@ -173,7 +29,7 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const pathname = url.pathname;
-    
+
     console.log('🎯 Dashboard request:', { pathname, orgId: auth.organizationId });
 
     const supabase = getServiceRoleClient();
@@ -181,36 +37,33 @@ Deno.serve(async (req: Request) => {
     if (pathname.endsWith('/enhanced') || pathname.includes('/dashboard/enhanced')) {
       return await getEnhancedDashboard(supabase, auth);
     } else {
-      return await getBasicStats(supabase, auth);
+      return await getOptimizedStats(supabase, auth);
     }
   } catch (error) {
     console.error('❌ Dashboard error:', error);
-    return errorResponse(error);
+    return handleError(error);
   }
 });
 
-async function getBasicStats(supabase: any, auth: AuthContext) {
+async function getOptimizedStats(supabase: any, auth: AuthContext) {
   const { data, error } = await supabase
-    .rpc("get_dashboard_stats", { p_organization_id: auth.organizationId })
+    .rpc("get_dashboard_stats_enhanced", { org_uuid: auth.organizationId })
     .maybeSingle();
 
-  if (error) throw new ApiError(error.message, "DATABASE_ERROR", 500);
-
-  if (!data) {
+  if (error) {
+    console.error('Dashboard stats error:', error);
     return successResponse({
-      totalRevenue: 0,
-      completedOrders: 0,
-      activeCustomers: 0,
-      activeTechnicians: 0,
-    });
+      work_orders: { pending: 0, in_progress: 0, completed_month: 0, new_week: 0 },
+      invoices: { pending_count: 0, partial_count: 0, pending_amount: 0, revenue_month: 0, revenue_week: 0 },
+      customers: { total: 0, new_month: 0 },
+      inventory: { low_stock: 0, out_of_stock: 0 },
+      expenses: { month: 0, week: 0 },
+      technicians: { active: 0 },
+      profit: { month: 0, week: 0 }
+    } as DashboardStats);
   }
 
-  return successResponse({
-    totalRevenue: Number(data.total_revenue) || 0,
-    completedOrders: Number(data.completed_orders) || 0,
-    activeCustomers: Number(data.active_customers) || 0,
-    activeTechnicians: Number(data.active_technicians) || 0,
-  });
+  return successResponse(data as DashboardStats);
 }
 
 async function getEnhancedDashboard(supabase: any, auth: AuthContext) {

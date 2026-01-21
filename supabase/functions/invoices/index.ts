@@ -2,45 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAuthenticatedClient } from "../_shared/utils/supabase.ts";
 import { authenticateWithPermissions } from "../_shared/middleware/authWithPermissions.ts";
 import { requirePermission, hasPermission } from "../_shared/middleware/permissionChecker.ts";
-import { ApiError } from "../_shared/types.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
-
-function corsResponse(): Response {
-  return new Response(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
-}
-
-function successResponse<T>(data: T, status: number = 200): Response {
-  return new Response(JSON.stringify({ success: true, data, error: null }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function errorResponse(error: any): Response {
-  const errorStatus = error.status || 500;
-  const errorCode = error.code || "ERROR";
-  const errorMessage = error.message || "An unexpected error occurred";
-
-  return new Response(
-    JSON.stringify({
-      success: false,
-      data: null,
-      error: { code: errorCode, message: errorMessage, details: error.details || null },
-    }),
-    {
-      status: errorStatus,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
-  );
-}
+import { corsResponse, successResponse, errorResponse } from "../_shared/utils/response.ts";
+import { handleError } from "../_shared/middleware/errorHandler.ts";
 
 function validateUUID(id: string | undefined, fieldName: string = "ID"): string {
   if (!id || id.trim() === "") {
@@ -324,7 +287,7 @@ Deno.serve(async (req: Request) => {
       default:
         throw new ApiError("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
-  } catch (err) {
-    return errorResponse(err);
+  } catch (error) {
+    return handleError(error);
   }
 });
