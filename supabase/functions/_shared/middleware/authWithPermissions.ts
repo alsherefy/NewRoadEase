@@ -37,7 +37,7 @@ export async function authenticateWithPermissions(req: Request): Promise<AuthCon
   }
 
   const { data: contextData, error: contextError } = await supabase
-    .rpc("get_my_auth_context");
+    .rpc("get_user_auth_context", { p_user_id: user.id });
 
   if (contextError || !contextData) {
     throw new AuthenticationError("Unable to load user context");
