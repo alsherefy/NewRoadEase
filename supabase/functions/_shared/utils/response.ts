@@ -15,6 +15,7 @@ export function corsResponse(): Response {
 
 export function successResponse<T>(data: T, status: number = 200): Response {
   const response: ApiResponse<T> = {
+    success: true,
     data,
   };
 
